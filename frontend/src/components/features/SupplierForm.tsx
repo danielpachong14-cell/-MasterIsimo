@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm, useFieldArray, SubmitHandler } from "react-hook-form"
+import { useForm, useFieldArray, SubmitHandler, Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { cn } from "@/lib/utils"
@@ -77,7 +77,7 @@ export function SupplierForm() {
     watch,
     formState: { errors },
   } = useForm<AppointmentForm>({
-    resolver: zodResolver(appointmentSchema) as any,
+    resolver: zodResolver(appointmentSchema) as Resolver<AppointmentForm>,
     defaultValues: {
       scheduled_date: new Date().toISOString().split('T')[0],
       purchase_orders: [{ po_number: "", box_count: 0 }],

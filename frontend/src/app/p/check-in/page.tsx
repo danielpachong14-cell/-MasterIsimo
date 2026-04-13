@@ -4,6 +4,7 @@ import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
+import type { Appointment } from "@/types"
 
 type Step = 'SEARCH' | 'FOUND' | 'NOT_FOUND' | 'SUCCESS' | 'ERROR'
 
@@ -11,8 +12,8 @@ export default function CheckInPage() {
   const [step, setStep] = useState<Step>('SEARCH')
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [appointments, setAppointments] = useState<any[]>([])
-  const [selectedAppt, setSelectedAppt] = useState<any | null>(null)
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null)
   const [message, setMessage] = useState('')
 
   // Form Data for "FOUND" state updates

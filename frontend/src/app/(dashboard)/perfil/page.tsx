@@ -312,7 +312,7 @@ export default function ProfilePage() {
                             )}
                           </div>
                           <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-tight mt-0.5">
-                            IP: {session.ip_address} • {new Date(session.last_sign_in_at as any).toLocaleString('es-CO', {
+                            IP: {session.ip_address} • {new Date(session.last_sign_in_at).toLocaleString('es-CO', {
                               day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
                             })}
                           </p>
