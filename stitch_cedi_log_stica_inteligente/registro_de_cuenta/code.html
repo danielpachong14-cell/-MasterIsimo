@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Registro | CEDI KINETIC</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "secondary": "#545f73",
+                      "primary-fixed": "#eddcff",
+                      "error": "#ba1a1a",
+                      "on-error": "#ffffff",
+                      "on-secondary-container": "#586377",
+                      "background": "#f8f9fb",
+                      "on-secondary-fixed-variant": "#3c475a",
+                      "surface-tint": "#6f4da0",
+                      "outline": "#7b7481",
+                      "on-background": "#191c1e",
+                      "outline-variant": "#ccc3d2",
+                      "on-secondary-fixed": "#111c2d",
+                      "on-primary-container": "#bf9af4",
+                      "inverse-on-surface": "#eff1f3",
+                      "surface-container-low": "#f2f4f6",
+                      "on-tertiary-container": "#27c38a",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#280056",
+                      "tertiary-fixed-dim": "#4edea3",
+                      "on-tertiary-fixed": "#002113",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "surface": "#f8f9fb",
+                      "on-surface-variant": "#4a4450",
+                      "surface-container": "#eceef0",
+                      "inverse-primary": "#d7baff",
+                      "inverse-surface": "#2d3133",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed": "#d8e3fb",
+                      "tertiary": "#00311f",
+                      "surface-container-highest": "#e0e3e5",
+                      "surface-container-high": "#e6e8ea",
+                      "secondary-fixed-dim": "#bcc7de",
+                      "tertiary-container": "#004a31",
+                      "surface-bright": "#f8f9fb",
+                      "on-primary-fixed-variant": "#563587",
+                      "surface-container-lowest": "#ffffff",
+                      "on-surface": "#191c1e",
+                      "tertiary-fixed": "#6ffbbe",
+                      "secondary-container": "#d5e0f8",
+                      "primary-container": "#4f2d7f",
+                      "surface-dim": "#d8dadc",
+                      "on-primary": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "primary-fixed-dim": "#d7baff",
+                      "surface-variant": "#e0e3e5",
+                      "primary": "#381368"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "fontFamily": {
+                      "headline": ["Manrope"],
+                      "body": ["Inter"],
+                      "label": ["Inter"]
+              }
+            },
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-kinetic-gradient {
+            background: linear-gradient(135deg, #381368 0%, #4f2d7f 100%);
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+<body class="bg-background font-body text-on-background selection:bg-primary-fixed selection:text-primary min-h-screen flex flex-col">
+<main class="flex-grow flex flex-col md:flex-row h-screen overflow-hidden">
+<!-- Industrial Visual Sidebar (Social Proof & Branding) -->
+<section class="hidden md:flex md:w-5/12 bg-kinetic-gradient relative flex-col justify-between p-12 overflow-hidden">
+<!-- Decorative Elements -->
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<div class="absolute top-0 right-0 w-[800px] h-[800px] border-[60px] border-white rounded-full translate-x-1/2 -translate-y-1/2"></div>
+<div class="absolute bottom-0 left-0 w-[400px] h-[400px] border-[2px] border-white/50 rounded-full -translate-x-1/4 translate-y-1/4"></div>
+</div>
+<!-- Logo -->
+<div class="relative z-10">
+<span class="font-headline font-black text-3xl tracking-tighter text-white">CEDI KINETIC</span>
+<p class="font-headline text-xs tracking-[0.3em] text-on-primary-container mt-2 opacity-80 uppercase">Architect Logistics</p>
+</div>
+<!-- Benefit Section -->
+<div class="relative z-10 space-y-8 mb-12">
+<h2 class="font-headline font-extrabold text-5xl leading-tight text-white max-w-sm">
+                    PRECISIÓN EN MOVIMIENTO.
+                </h2>
+<div class="space-y-6">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-white">speed</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-lg text-white">Eficiencia Crítica</h3>
+<p class="text-on-primary-container text-sm leading-relaxed max-w-xs">Optimización de tiempos de muelle y flujo de inventario con algoritmos de IA.</p>
+</div>
+</div>
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-lg text-white">Control Operacional</h3>
+<p class="text-on-primary-container text-sm leading-relaxed max-w-xs">Visibilidad total de la flota y seguridad perimetral de grado industrial.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Quote/Social Proof -->
+<div class="relative z-10 pt-8 border-t border-white/10">
+<p class="text-sm italic text-white/70 mb-4">"Kinetic ha transformado nuestra capacidad de respuesta, reduciendo los cuellos de botella en un 42% durante el primer semestre."</p>
+<div class="flex items-center gap-3">
+<img alt="Director de Operaciones" class="w-10 h-10 rounded-full border-2 border-white/20" data-alt="Professional headshot of a logistics executive in a corporate setting, looking confident and smiling slightly, warm natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEBNwB-hqn1lMAmexskRHHEwMhWAtMZZyHjXCTGNkzF-olJa6XrjfDJ53NrF54Wzoa3YMk6QMRra7Kydyf3C9rHYfVRfCIZWtA6-Lb-R3QfRf5sWtjPzkE06y0Wg88MDaagpoj1AdOATd91EWKqlCKlFcngdUhYnrhnZjDi2VZwiv39PGvgD5j38fancquREMx136UuhBMNreWg9aDwVC1RbWKXeoR1nfYQsE_IaqszRyvEuLptox-SI5e4jrTh-txCEcKZFdl1lI"/>
+<div>
+<p class="text-xs font-bold text-white uppercase tracking-wider">Carlos Mendoza</p>
+<p class="text-[10px] text-on-primary-container uppercase tracking-widest">Director Regional • LOGISTIK PRO</p>
+</div>
+</div>
+</div>
+<!-- Background Image Overlay -->
+<div class="absolute inset-0 z-0">
+<img alt="Warehouse Logistics" class="w-full h-full object-cover mix-blend-overlay opacity-30 grayscale" data-alt="Modern high-tech distribution center warehouse with large racking systems, blue and purple industrial lighting, motion blur of machinery" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGQ9QE2u6BG-TYCbynDBRLcxTGV4fG29EtECWqvJoi593_ZPDeBLsFEXuo0xbav26DjB0EiK4MsgHZBdrF5aUYUhLa1KCbkKOErQyfNUGxYN5D9sppeMztU3EjFDDc-G2agXNk9x67yoy3eBd8DoqXL2ghykodLpPgN2ff_gRjYu_6DWx1cG8eKjGUWnzP4DlA0e4dDeKlw9UQNDWh7JJzJGltttvbqR0HrdzlQOhRI2brmsTxtFCbrKPR3tOZOeNstSgBqD7thv8"/>
+</div>
+</section>
+<!-- Form Canvas -->
+<section class="flex-grow flex items-center justify-center p-6 md:p-12 overflow-y-auto bg-surface">
+<div class="w-full max-w-xl">
+<!-- Mobile Logo (Visible only on small screens) -->
+<div class="md:hidden mb-8">
+<span class="font-headline font-black text-2xl tracking-tighter text-primary">CEDI KINETIC</span>
+</div>
+<div class="mb-10">
+<h1 class="font-headline font-extrabold text-4xl text-on-surface tracking-tight mb-3">Únase a la red CEDI Kinetic</h1>
+<p class="text-secondary text-base">Complete el perfil de su empresa para empezar a gestionar sus entregas.</p>
+</div>
+<form class="space-y-6">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Nombre de la Empresa -->
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-semibold text-outline tracking-wider uppercase" for="company_name">Nombre de la Empresa</label>
+<input class="w-full h-14 px-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface" id="company_name" name="company_name" placeholder="Ej. Logística Global S.A." type="text"/>
+</div>
+<!-- NIT -->
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-semibold text-outline tracking-wider uppercase" for="nit">NIT</label>
+<input class="w-full h-14 px-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface" id="nit" name="nit" placeholder="900.000.000-0" type="text"/>
+</div>
+<!-- Correo Corporativo -->
+<div class="space-y-1.5 md:col-span-2">
+<label class="block font-label text-xs font-semibold text-outline tracking-wider uppercase" for="email">Correo Corporativo</label>
+<input class="w-full h-14 px-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface" id="email" name="email" placeholder="admin@empresa.com" type="email"/>
+</div>
+<!-- Teléfono -->
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-semibold text-outline tracking-wider uppercase" for="phone">Teléfono</label>
+<input class="w-full h-14 px-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface" id="phone" name="phone" placeholder="+57 300 000 0000" type="tel"/>
+</div>
+<!-- Tipo de Usuario -->
+<div class="space-y-1.5">
+<label class="block font-label text-xs font-semibold text-outline tracking-wider uppercase" for="user_type">Tipo de Usuario</label>
+<div class="relative">
+<select class="appearance-none w-full h-14 px-4 bg-surface-container-highest border-none rounded-xl focus:ring-2 focus:ring-primary/20 focus:bg-surface-container-lowest transition-all text-on-surface cursor-pointer" id="user_type" name="user_type">
+<option disabled="" selected="" value="">Seleccionar rol</option>
+<option value="proveedor">Proveedor</option>
+<option value="transportista">Transportista</option>
+</select>
+<div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-outline">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Terms Checkbox -->
+<div class="flex items-center gap-3 py-2">
+<input class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary-container bg-surface-container-highest" id="terms" name="terms" type="checkbox"/>
+<label class="text-sm text-secondary" for="terms">
+                            Acepto los <a class="text-primary font-semibold hover:underline" href="#">Términos de Servicio</a> y la <a class="text-primary font-semibold hover:underline" href="#">Política de Seguridad Operacional</a>.
+                        </label>
+</div>
+<!-- Primary CTA -->
+<button class="w-full h-14 bg-kinetic-gradient text-white font-headline font-bold text-lg rounded-xl shadow-[0px_10px_30px_rgba(56,19,104,0.2)] active:scale-[0.98] transition-all hover:brightness-110 flex items-center justify-center gap-3" type="submit">
+<span>Registrar Empresa</span>
+<span class="material-symbols-outlined text-xl">arrow_forward</span>
+</button>
+<div class="pt-6 text-center">
+<p class="text-sm text-outline">
+                            ¿Ya tiene una cuenta registrada? 
+                            <a class="text-primary font-bold ml-1 hover:underline" href="#">Iniciar Sesión</a>
+</p>
+</div>
+</form>
+<!-- Utility Footer -->
+<footer class="mt-12 flex flex-wrap items-center justify-center md:justify-start gap-x-8 gap-y-4 pt-8 border-t border-outline-variant/10">
+<span class="font-headline font-bold text-xs tracking-widest text-on-surface opacity-30 uppercase">© 2024 KINETIC ARCHITECT LOGISTICS</span>
+<div class="flex gap-6">
+<a class="font-label text-[10px] text-outline uppercase tracking-widest hover:text-primary transition-colors" href="#">Operational Security</a>
+<a class="font-label text-[10px] text-outline uppercase tracking-widest hover:text-primary transition-colors" href="#">Contact Support</a>
+</div>
+</footer>
+</div>
+</section>
+</main>
+<!-- Visual Polish: Grain Overlay -->
+<div class="fixed inset-0 pointer-events-none opacity-[0.03] z-[9999] mix-blend-multiply">
+<svg viewbox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+<filter id="noiseFilter">
+<feturbulence basefrequency="0.65" numoctaves="3" stitchtiles="stitch" type="fractalNoise"></feturbulence>
+</filter>
+<rect filter="url(#noiseFilter)" height="100%" width="100%"></rect>
+</svg>
+</div>
+</body></html>

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error": "#ffffff",
+                    "primary-container": "#4f2d7f",
+                    "surface-container-low": "#f2f4f6",
+                    "inverse-primary": "#d7baff",
+                    "inverse-surface": "#2d3133",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-secondary-container": "#586377",
+                    "error-container": "#ffdad6",
+                    "on-primary": "#ffffff",
+                    "primary-fixed": "#eddcff",
+                    "surface-variant": "#e0e3e5",
+                    "on-primary-fixed-variant": "#563587",
+                    "on-surface": "#191c1e",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-tertiary-fixed-variant": "#005236",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-container": "#27c38a",
+                    "secondary-container": "#d5e0f8",
+                    "surface-bright": "#f8f9fb",
+                    "secondary-fixed": "#d8e3fb",
+                    "surface-tint": "#6f4da0",
+                    "on-secondary-fixed-variant": "#3c475a",
+                    "on-surface-variant": "#4a4450",
+                    "tertiary": "#00311f",
+                    "on-secondary": "#ffffff",
+                    "surface-container-high": "#e6e8ea",
+                    "on-background": "#191c1e",
+                    "tertiary-container": "#004a31",
+                    "outline-variant": "#ccc3d2",
+                    "primary-fixed-dim": "#d7baff",
+                    "secondary-fixed-dim": "#bcc7de",
+                    "tertiary-fixed-dim": "#4edea3",
+                    "on-primary-container": "#bf9af4",
+                    "tertiary-fixed": "#6ffbbe",
+                    "primary": "#381368",
+                    "on-primary-fixed": "#280056",
+                    "background": "#f8f9fb",
+                    "on-tertiary-fixed": "#002113",
+                    "surface-container": "#eceef0",
+                    "outline": "#7b7481",
+                    "error": "#ba1a1a",
+                    "on-error-container": "#93000a",
+                    "on-tertiary": "#ffffff",
+                    "surface-dim": "#d8dadc",
+                    "on-secondary-fixed": "#111c2d",
+                    "secondary": "#545f73",
+                    "surface": "#f8f9fb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<!-- TopNavBar -->
+<header class="bg-white/80 dark:bg-slate-950/80 backdrop-blur-md fixed top-0 right-0 left-64 h-16 z-10 border-b border-[#ccc3d2]/20 flex items-center justify-between px-8 w-full font-['Inter'] text-sm font-medium">
+<div class="flex items-center gap-8">
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-[#381368] font-bold border-b-2 border-[#381368] py-1" href="#">Tablero de Control</a>
+<a class="text-slate-500 hover:text-[#4f2d7f] dark:hover:text-white transition-all duration-300 px-2 py-1" href="#">Portal de Programación</a>
+<a class="text-slate-500 hover:text-[#4f2d7f] dark:hover:text-white transition-all duration-300 px-2 py-1" href="#">Tabla de Trazabilidad</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-slate-100 dark:bg-purple-900/30 rounded-full px-4 py-1.5">
+<span class="material-symbols-outlined text-slate-500 mr-2" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48" placeholder="Buscar muelle o envío..." type="text"/>
+</div>
+<button class="material-symbols-outlined p-2 text-[#381368] dark:text-[#d8e3fb] hover:text-[#4f2d7f] dark:hover:text-white transition-all duration-300 rounded-full" data-icon="notifications">notifications</button>
+<button class="material-symbols-outlined p-2 text-[#381368] dark:text-[#d8e3fb] hover:text-[#4f2d7f] dark:hover:text-white transition-all duration-300 rounded-full" data-icon="settings">settings</button>
+<div class="h-8 w-8 rounded-full overflow-hidden ml-2 ring-2 ring-purple-100">
+<img alt="Logistics Manager Profile" data-alt="professional male logistics manager in high-vis vest and headset smiling in a bright modern warehouse office setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCog-T-Ko4m8rcxynAgsEpzIZGEbezFIM4Jg_xceivOUPouTUf73FJ-RLpNRJcbIcqvlmHIH4XqfC16bBB-J7eW47hqtYjv8pvynzbkDLCtXIgpiCIoz7pZg9JonRx2fXBMRh1_IE7LhifVlffoCxyRXbGzWV89ED4I67fNXUJJoJ-Maq-ET5AYo5MoxnGR63cV5CgErty9STxUEGMsiE6zgB0Ee8DFkfDaFAnKZCGA_Zqe-GAbP48CvIPgMKeG3d7ErBNaolb96Qs"/>
+</div>
+</div>
+</header>
+<!-- SideNavBar: Kinetic Architect Style -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-gradient-to-b from-surface-container-low to-surface bg-[#f0f3ff] dark:bg-slate-900 font-['Inter'] antialiased tracking-tight z-50">
+<div class="flex flex-col h-full py-6 px-4 gap-y-2">
+<div class="mb-8 px-2 flex flex-col">
+<h2 class="text-lg font-black tracking-tighter text-[#381368] dark:text-white uppercase">Kinetic Architect</h2>
+<p class="text-slate-500 text-xs font-medium uppercase tracking-wider">Logistics CEDI</p>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="bg-[#d8e3fb] dark:bg-[#4f2d7f]/30 text-[#381368] dark:text-white font-semibold rounded-lg flex items-center gap-3 px-4 py-3 active:scale-95 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-sm">Tablero de Control</span>
+</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-[#381368] dark:hover:text-white hover:bg-[#d8e3fb]/50 dark:hover:bg-slate-800 flex items-center gap-3 px-4 py-3 rounded-lg active:scale-95 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="text-sm">Tabla de Trazabilidad</span>
+</a>
+<div class="mt-4 px-2">
+<button class="w-full bg-[#381368] text-white py-2.5 rounded-lg text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#4f2d7f] active:scale-95 transition-all duration-200">
+<span class="material-symbols-outlined text-sm" data-icon="share">share</span>
+                    Compartir
+                </button>
+</div>
+</nav>
+<div class="flex flex-col gap-1 pt-4 border-t border-[#ccc3d2]/30">
+<a class="text-slate-600 dark:text-slate-400 hover:text-[#381368] dark:hover:text-white hover:bg-[#d8e3fb]/50 dark:hover:bg-slate-800 flex items-center gap-3 px-4 py-3 rounded-lg active:scale-95 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="support_agent">support_agent</span>
+<span class="text-sm">Soporte</span>
+</a>
+<a class="text-slate-600 dark:text-slate-400 hover:text-[#381368] dark:hover:text-white hover:bg-[#d8e3fb]/50 dark:hover:bg-slate-800 flex items-center gap-3 px-4 py-3 rounded-lg active:scale-95 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="text-sm">Cerrar Sesión</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:pl-64 pt-24 px-6 pb-12 min-h-screen bg-background">
+<div class="max-w-7xl mx-auto">
+<!-- Bento Grid Dashboard -->
+<div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-6">
+<!-- KPI Card: Unloading Times -->
+<div class="md:col-span-2 lg:col-span-3 bg-surface-container-lowest rounded-full p-6 flex flex-col justify-between shadow-sm border border-transparent hover:border-purple-200 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="bg-primary-container/10 p-2 rounded-lg text-primary">
+<span class="material-symbols-outlined" data-icon="timer">timer</span>
+</div>
+<span class="text-tertiary-container font-bold text-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="trending_down">trending_down</span>
+                        -12%
+                    </span>
+</div>
+<div>
+<p class="text-on-surface-variant font-medium text-xs tracking-widest uppercase mb-1">PROMEDIO DESCARGA</p>
+<h3 class="text-4xl font-extrabold text-primary group-hover:scale-105 transition-transform origin-left">42.5<span class="text-lg font-bold ml-1 text-slate-400">min</span></h3>
+</div>
+</div>
+<!-- KPI Card: Dock Occupancy -->
+<div class="md:col-span-2 lg:col-span-3 bg-surface-container-lowest rounded-full p-6 flex flex-col justify-between shadow-sm border border-transparent hover:border-purple-200 transition-all group">
+<div class="flex justify-between items-start mb-4">
+<div class="bg-secondary-container/30 p-2 rounded-lg text-secondary">
+<span class="material-symbols-outlined" data-icon="dock">dock</span>
+</div>
+<span class="text-on-secondary-container font-bold text-xs">ACTUAL</span>
+</div>
+<div>
+<p class="text-on-surface-variant font-medium text-xs tracking-widest uppercase mb-1">OCUPACIÓN MUELLES</p>
+<div class="flex items-end justify-between">
+<h3 class="text-4xl font-extrabold text-primary group-hover:scale-105 transition-transform origin-left">84<span class="text-lg font-bold ml-1 text-slate-400">%</span></h3>
+<div class="w-16 h-1.5 bg-slate-100 rounded-full mb-2">
+<div class="bg-primary h-full w-[84%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- KPI Card: Daily Productivity -->
+<div class="md:col-span-4 lg:col-span-6 bg-surface-container-lowest rounded-full p-6 flex flex-col justify-between shadow-sm border border-transparent hover:border-purple-200 transition-all group relative overflow-hidden">
+<div class="absolute right-0 top-0 bottom-0 w-1/2 opacity-5 pointer-events-none">
+<svg class="h-full w-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<path class="text-primary" d="M0,100 C30,80 60,90 100,20 L100,100 Z" fill="currentColor"></path>
+</svg>
+</div>
+<div class="flex justify-between items-start mb-4 relative z-10">
+<div class="bg-tertiary-container/10 p-2 rounded-lg text-tertiary-container">
+<span class="material-symbols-outlined" data-icon="package_2">package_2</span>
+</div>
+<span class="text-tertiary-container font-bold text-xs flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+                        Meta: 95%
+                    </span>
+</div>
+<div class="relative z-10">
+<p class="text-on-surface-variant font-medium text-xs tracking-widest uppercase mb-1">PRODUCTIVIDAD DIARIA</p>
+<div class="flex items-baseline gap-2">
+<h3 class="text-4xl font-extrabold text-primary group-hover:scale-105 transition-transform origin-left">2,148</h3>
+<span class="text-sm font-semibold text-slate-500">unidades / hr</span>
+</div>
+</div>
+</div>
+<!-- Active Dock Visualizer (The Grid) -->
+<div class="md:col-span-4 lg:col-span-8 bg-surface-container-low rounded-xl p-8 shadow-sm">
+<div class="flex justify-between items-center mb-8">
+<div>
+<h2 class="text-2xl font-extrabold text-primary tracking-tight">Mapeo de Muelles</h2>
+<p class="text-slate-500 text-sm">Estado en tiempo real de bahías A1 - C12</p>
+</div>
+<div class="flex gap-4">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-primary-container"></span>
+<span class="text-xs font-semibold text-slate-600">Ocupado</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-white border border-slate-300"></span>
+<span class="text-xs font-semibold text-slate-600">Libre</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-error"></span>
+<span class="text-xs font-semibold text-slate-600">Mantenimiento</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
+<!-- Dock 1: Busy -->
+<div class="aspect-square bg-primary-container rounded-xl flex flex-col items-center justify-center text-white relative group cursor-pointer shadow-md">
+<div class="absolute left-0 top-0 h-full w-1 bg-tertiary-fixed rounded-l-xl"></div>
+<span class="text-xs opacity-70 font-bold">A-01</span>
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+<div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center backdrop-blur-sm">
+<span class="text-[10px] font-bold">VER DETALLE</span>
+</div>
+</div>
+<!-- Dock 2: Free -->
+<div class="aspect-square bg-surface-container-lowest border border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-300 group cursor-pointer hover:border-primary/30 transition-colors">
+<span class="text-xs text-slate-400 font-bold">A-02</span>
+<span class="material-symbols-outlined text-3xl" data-icon="check_circle">check_circle</span>
+</div>
+<!-- Dock 3: Busy -->
+<div class="aspect-square bg-primary-container rounded-xl flex flex-col items-center justify-center text-white relative shadow-md">
+<div class="absolute left-0 top-0 h-full w-1 bg-tertiary-fixed rounded-l-xl"></div>
+<span class="text-xs opacity-70 font-bold">A-03</span>
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<!-- Dock 4: Maintenance -->
+<div class="aspect-square bg-error-container text-error rounded-xl flex flex-col items-center justify-center relative">
+<div class="absolute left-0 top-0 h-full w-1 bg-error rounded-l-xl"></div>
+<span class="text-xs font-bold">A-04</span>
+<span class="material-symbols-outlined text-3xl" data-icon="build">build</span>
+</div>
+<div class="aspect-square bg-primary-container rounded-xl flex flex-col items-center justify-center text-white relative shadow-md">
+<div class="absolute left-0 top-0 h-full w-1 bg-tertiary-fixed rounded-l-xl"></div>
+<span class="text-xs opacity-70 font-bold">B-01</span>
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest border border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-300">
+<span class="text-xs text-slate-400 font-bold">B-02</span>
+<span class="material-symbols-outlined text-3xl" data-icon="check_circle">check_circle</span>
+</div>
+<div class="aspect-square bg-primary-container rounded-xl flex flex-col items-center justify-center text-white relative shadow-md">
+<div class="absolute left-0 top-0 h-full w-1 bg-tertiary-fixed rounded-l-xl"></div>
+<span class="text-xs opacity-70 font-bold">B-03</span>
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<div class="aspect-square bg-primary-container rounded-xl flex flex-col items-center justify-center text-white relative shadow-md">
+<div class="absolute left-0 top-0 h-full w-1 bg-tertiary-fixed rounded-l-xl"></div>
+<span class="text-xs opacity-70 font-bold">B-04</span>
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest border border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-300">
+<span class="text-xs text-slate-400 font-bold">C-01</span>
+<span class="material-symbols-outlined text-3xl" data-icon="check_circle">check_circle</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest border border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-300">
+<span class="text-xs text-slate-400 font-bold">C-02</span>
+<span class="material-symbols-outlined text-3xl" data-icon="check_circle">check_circle</span>
+</div>
+<div class="aspect-square bg-primary-container rounded-xl flex flex-col items-center justify-center text-white relative shadow-md">
+<div class="absolute left-0 top-0 h-full w-1 bg-tertiary-fixed rounded-l-xl"></div>
+<span class="text-xs opacity-70 font-bold">C-03</span>
+<span class="material-symbols-outlined text-3xl" data-icon="local_shipping">local_shipping</span>
+</div>
+<div class="aspect-square bg-surface-container-lowest border border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-300">
+<span class="text-xs text-slate-400 font-bold">C-04</span>
+<span class="material-symbols-outlined text-3xl" data-icon="check_circle">check_circle</span>
+</div>
+</div>
+</div>
+<!-- 'Próximas Llegadas' (Quick List) -->
+<div class="md:col-span-4 lg:col-span-4 bg-surface-container-lowest rounded-xl p-6 shadow-sm flex flex-col">
+<div class="flex items-center justify-between mb-6">
+<h2 class="text-lg font-bold text-primary">Próximas Llegadas</h2>
+<button class="text-primary text-xs font-bold hover:underline">Ver todas</button>
+</div>
+<div class="space-y-4 flex-1">
+<div class="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
+<div class="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center text-slate-500">
+<span class="material-symbols-outlined" data-icon="shutter_speed">shutter_speed</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between">
+<p class="text-sm font-bold text-on-surface">TX-4092-B</p>
+<span class="text-xs font-bold text-primary">09:15</span>
+</div>
+<p class="text-[11px] text-slate-500">Operador: Logistics Express</p>
+</div>
+</div>
+<div class="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
+<div class="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center text-slate-500">
+<span class="material-symbols-outlined" data-icon="shutter_speed">shutter_speed</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between">
+<p class="text-sm font-bold text-on-surface">MX-1122-Z</p>
+<span class="text-xs font-bold text-primary">09:40</span>
+</div>
+<p class="text-[11px] text-slate-500">Operador: Carga Rápida S.A.</p>
+</div>
+</div>
+<div class="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
+<div class="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center text-slate-500">
+<span class="material-symbols-outlined" data-icon="shutter_speed">shutter_speed</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between">
+<p class="text-sm font-bold text-on-surface">TR-8839-C</p>
+<span class="text-xs font-bold text-slate-400">10:05</span>
+</div>
+<p class="text-[11px] text-slate-500">Operador: TransNacional</p>
+</div>
+</div>
+<div class="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
+<div class="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center text-slate-500">
+<span class="material-symbols-outlined" data-icon="shutter_speed">shutter_speed</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between">
+<p class="text-sm font-bold text-on-surface">QW-0091-M</p>
+<span class="text-xs font-bold text-slate-400">10:45</span>
+</div>
+<p class="text-[11px] text-slate-500">Operador: Distribuidora Sol</p>
+</div>
+</div>
+<div class="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
+<div class="bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center text-slate-500">
+<span class="material-symbols-outlined" data-icon="shutter_speed">shutter_speed</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between">
+<p class="text-sm font-bold text-on-surface">HY-7742-L</p>
+<span class="text-xs font-bold text-slate-400">11:10</span>
+</div>
+<p class="text-[11px] text-slate-500">Operador: CargoMasters</p>
+</div>
+</div>
+</div>
+<div class="mt-6 pt-6 border-t border-slate-100">
+<div class="bg-primary/5 p-4 rounded-xl flex items-center gap-3">
+<div class="bg-primary text-white p-2 rounded-lg">
+<span class="material-symbols-outlined text-sm" data-icon="info">info</span>
+</div>
+<p class="text-[10px] font-medium text-primary-container leading-tight">3 vehículos reportan retraso por condiciones climáticas en ruta norte.</p>
+</div>
+</div>
+</div>
+<!-- Alerts & Task Summary Section (High Contrast) -->
+<div class="md:col-span-4 lg:col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-primary text-white rounded-xl p-6 flex items-center gap-6 shadow-xl">
+<div class="h-16 w-16 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md">
+<span class="material-symbols-outlined text-3xl" data-icon="verified">verified</span>
+</div>
+<div>
+<h4 class="text-xl font-bold">Sincronización Total</h4>
+<p class="text-white/70 text-xs">Todos los muelles operando sin cuellos de botella detectados.</p>
+</div>
+</div>
+<div class="md:col-span-2 bg-secondary text-white rounded-xl p-6 flex justify-between items-center">
+<div class="flex flex-col gap-1">
+<span class="text-[10px] font-bold tracking-widest opacity-70">SISTEMA INTELIGENTE DE TRÁFICO</span>
+<h4 class="text-lg font-bold">Optimización de bahías activa</h4>
+</div>
+<div class="flex gap-2">
+<button class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg text-xs font-bold backdrop-blur-md transition-all">Reporte de Turnos</button>
+<button class="bg-white text-secondary hover:bg-slate-100 px-4 py-2 rounded-lg text-xs font-bold transition-all">Ajustar Prioridades</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Contextual FAB (Only for Home/Dashboard) -->
+<button class="fixed bottom-8 right-8 bg-gradient-to-br from-primary to-primary-container text-white h-14 w-14 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-40 group">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+<span class="absolute right-16 bg-primary px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Nueva Operación</span>
+</button>
+</body></html>

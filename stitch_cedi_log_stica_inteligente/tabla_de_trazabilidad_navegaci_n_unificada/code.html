@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "primary-container": "#4f2d7f",
+                        "surface-container-low": "#f2f4f6",
+                        "inverse-primary": "#d7baff",
+                        "inverse-surface": "#2d3133",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-secondary-container": "#586377",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#eddcff",
+                        "surface-variant": "#e0e3e5",
+                        "on-primary-fixed-variant": "#563587",
+                        "on-surface": "#191c1e",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-tertiary-fixed-variant": "#005236",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#27c38a",
+                        "secondary-container": "#d5e0f8",
+                        "surface-bright": "#f8f9fb",
+                        "secondary-fixed": "#d8e3fb",
+                        "surface-tint": "#6f4da0",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-surface-variant": "#4a4450",
+                        "tertiary": "#00311f",
+                        "on-secondary": "#ffffff",
+                        "surface-container-high": "#e6e8ea",
+                        "on-background": "#191c1e",
+                        "tertiary-container": "#004a31",
+                        "outline-variant": "#ccc3d2",
+                        "primary-fixed-dim": "#d7baff",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "tertiary-fixed-dim": "#4edea3",
+                        "on-primary-container": "#bf9af4",
+                        "tertiary-fixed": "#6ffbbe",
+                        "primary": "#381368",
+                        "on-primary-fixed": "#280056",
+                        "background": "#f8f9fb",
+                        "on-tertiary-fixed": "#002113",
+                        "surface-container": "#eceef0",
+                        "outline": "#7b7481",
+                        "error": "#ba1a1a",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "surface-dim": "#d8dadc",
+                        "on-secondary-fixed": "#111c2d",
+                        "secondary": "#545f73",
+                        "surface": "#f8f9fb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .brand-font { font-family: 'Manrope', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen">
+<!-- Sidebar Navigation -->
+<aside class="h-screen w-64 fixed left-0 top-0 flex flex-col bg-[#f0f3ff] dark:bg-slate-900 bg-gradient-to-b from-surface-container-low to-surface py-6 px-4 gap-y-2 z-50 font-['Inter'] antialiased tracking-tight">
+<div class="mb-8 px-2 flex flex-col gap-1">
+<span class="text-lg font-black tracking-tighter text-[#381368] dark:text-white uppercase brand-font">Kinetic Architect</span>
+<p class="text-[10px] text-slate-500 font-bold uppercase tracking-[0.15em]">Logistics CEDI</p>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#381368] dark:hover:text-white hover:bg-[#d8e3fb]/50 dark:hover:bg-slate-800 transition-colors duration-200 text-sm font-medium rounded-lg active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Tablero de Control
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 bg-[#d8e3fb] dark:bg-[#4f2d7f]/30 text-[#381368] dark:text-white font-semibold rounded-lg active:scale-95 transition-transform text-sm" href="#">
+<span class="material-symbols-outlined" data-icon="analytics" style="font-variation-settings: 'FILL' 1;">analytics</span>
+                Tabla de Trazabilidad
+            </a>
+</nav>
+<button class="mt-4 mb-8 w-full bg-primary py-3 rounded-xl text-white font-bold text-sm shadow-md active:scale-95 transition-all">
+            Compartir
+        </button>
+<div class="pt-4 flex flex-col gap-1 border-t border-[#ccc3d2]/20">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#381368] dark:hover:text-white hover:bg-[#d8e3fb]/50 dark:hover:bg-slate-800 transition-colors duration-200 text-sm font-medium rounded-lg active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="support_agent">support_agent</span>
+                Soporte
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:text-[#381368] dark:hover:text-white hover:bg-[#d8e3fb]/50 dark:hover:bg-slate-800 transition-colors duration-200 text-sm font-medium rounded-lg active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+                Cerrar Sesión
+            </a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 right-0 left-64 h-16 z-40 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-[#ccc3d2]/20 px-8 flex justify-between items-center font-['Inter'] text-sm font-medium transition-all duration-300">
+<div class="flex items-center gap-6">
+<h1 class="text-xl font-black text-[#381368] dark:text-[#d8e3fb] tracking-tighter brand-font">CEDI Kinetic</h1>
+</div>
+<div class="flex items-center gap-6 flex-1 justify-end">
+<div class="relative group">
+<span class="absolute inset-y-0 left-3 flex items-center text-slate-400 group-focus-within:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</span>
+<input class="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 w-80 text-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search shipments, docks, or IDs..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-500 hover:text-[#4f2d7f] dark:hover:text-white transition-colors rounded-full active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-slate-500 hover:text-[#4f2d7f] dark:hover:text-white transition-colors rounded-full active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="h-10 w-10 rounded-full overflow-hidden border-2 border-primary-container/20">
+<img alt="User profile" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAf9Ou_wHiVh53G5_woUAenD12KK9phfYeaJ8YuUrwAx-h0S8vrNk6hp1QYLwe2jqJcubbFjtiSKhHNMXIUdIrsHYQUKgE6rsPr98gJZgAulevWNHN4SLZ1oOcoU2CYOTui43MBTBMe1TYEO3kCeOGQnyvn6C2YNjvdIdqoeu9LenFCHBUfuTWwJje8s4ra7UalcKT4ZXoc9VNNADvGrtSnPPoyOblS8bjT0IYbLIKiQlqTSMSlliyHXvEK3xXBwwbs4BwcZ-XPLWk"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="p-8 pt-24">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-10">
+<div class="space-y-1">
+<h2 class="text-4xl font-extrabold tracking-tight text-primary brand-font">Tabla de Trazabilidad</h2>
+<p class="text-secondary font-medium uppercase tracking-[0.1em] text-xs">Real-time Receiving &amp; Appointment Management</p>
+</div>
+<div class="flex gap-3">
+<button class="flex items-center gap-2 px-6 py-3 bg-surface-bright border-none shadow-sm rounded-xl text-primary font-bold text-sm hover:bg-surface-container transition-colors active:scale-95">
+<span class="material-symbols-outlined text-lg" data-icon="filter_list">filter_list</span>
+                        Filtros
+                    </button>
+<button class="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-primary to-primary-container text-white rounded-xl font-bold shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="local_shipping">local_shipping</span>
+                        Registrar Arribo
+                    </button>
+</div>
+</div>
+<!-- Dashboard Stats (Bento Grid) -->
+<div class="grid grid-cols-4 gap-6 mb-8">
+<div class="col-span-2 bg-surface-container-lowest p-6 rounded-xl shadow-sm border-l-4 border-primary">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Total Operaciones Hoy</p>
+<div class="flex items-end gap-4">
+<span class="text-6xl font-black text-primary brand-font">142</span>
+<div class="mb-2 flex items-center text-tertiary-container font-bold text-sm">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up">trending_up</span>
+                            +12% vs ayer
+                        </div>
+</div>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">En Espera</p>
+<span class="text-4xl font-black text-secondary brand-font">24</span>
+</div>
+<div class="bg-surface-container-low p-6 rounded-xl">
+<p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Eficiencia Muelle</p>
+<span class="text-4xl font-black text-tertiary-container brand-font">94%</span>
+</div>
+</div>
+<!-- Main Table Container -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-[0px_20px_40px_rgba(56,13,104,0.04)] overflow-hidden">
+<!-- Table Controls -->
+<div class="px-8 py-6 flex justify-between items-center bg-surface-bright">
+<div class="flex gap-4">
+<button class="px-4 py-2 bg-primary text-white rounded-full text-xs font-bold">Todos</button>
+<button class="px-4 py-2 hover:bg-slate-100 rounded-full text-xs font-bold text-slate-500">En espera</button>
+<button class="px-4 py-2 hover:bg-slate-100 rounded-full text-xs font-bold text-slate-500">Descargando</button>
+<button class="px-4 py-2 hover:bg-slate-100 rounded-full text-xs font-bold text-slate-500">Finalizado</button>
+</div>
+<div class="flex items-center gap-2 text-slate-400 text-sm">
+<span class="material-symbols-outlined" data-icon="update">update</span>
+                        Última actualización: hace 2 mins
+                    </div>
+</div>
+<!-- Table Content -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">ID Cita</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Proveedor</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Vehículo / Placa</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Estado</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Hora Pactada</th>
+<th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Muelle</th>
+<th class="px-8 py-5 text-right"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100">
+<!-- Row 1 -->
+<tr class="hover:bg-slate-50 transition-colors group">
+<td class="px-8 py-5 flex items-center gap-2">
+<div class="w-1 h-8 bg-tertiary-fixed rounded-full"></div>
+<span class="font-bold text-primary tabular-nums">#QT-9921</span>
+</td>
+<td class="px-6 py-5 font-semibold text-slate-700">Nestlé Logistics</td>
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-medium text-slate-800">Tractocamión</span>
+<span class="text-xs text-slate-400 font-mono tracking-tighter">ABC-1234</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant text-[10px] font-black uppercase tracking-wider">
+                                        Descargando
+                                    </span>
+</td>
+<td class="px-6 py-5 font-mono text-sm font-medium text-slate-600">08:30 AM</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-surface-container rounded-lg font-bold text-primary text-xs">M-04</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-primary transition-all">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="bg-surface-container-low/20 hover:bg-slate-50 transition-colors group">
+<td class="px-8 py-5 flex items-center gap-2">
+<div class="w-1 h-8 bg-error-container rounded-full"></div>
+<span class="font-bold text-primary tabular-nums">#QT-9925</span>
+</td>
+<td class="px-6 py-5 font-semibold text-slate-700">P&amp;G Global</td>
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-medium text-slate-800">Sencillo</span>
+<span class="text-xs text-slate-400 font-mono tracking-tighter">XYZ-9876</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-slate-200 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                                        En espera
+                                    </span>
+</td>
+<td class="px-6 py-5 font-mono text-sm font-medium text-slate-600">09:00 AM</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-surface-container rounded-lg font-bold text-primary text-xs">M-12</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-primary transition-all">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-slate-50 transition-colors group">
+<td class="px-8 py-5 flex items-center gap-2">
+<div class="w-1 h-8 bg-tertiary-fixed rounded-full"></div>
+<span class="font-bold text-primary tabular-nums">#QT-9928</span>
+</td>
+<td class="px-6 py-5 font-semibold text-slate-700">Coca-Cola FEMSA</td>
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-medium text-slate-800">Doble Troque</span>
+<span class="text-xs text-slate-400 font-mono tracking-tighter">WER-5511</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed-variant text-[10px] font-black uppercase tracking-wider">
+                                        Descargando
+                                    </span>
+</td>
+<td class="px-6 py-5 font-mono text-sm font-medium text-slate-600">09:15 AM</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-surface-container rounded-lg font-bold text-primary text-xs">M-01</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-primary transition-all">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="bg-surface-container-low/20 hover:bg-slate-50 transition-colors group">
+<td class="px-8 py-5 flex items-center gap-2">
+<div class="w-1 h-8 bg-on-secondary-container/20 rounded-full"></div>
+<span class="font-bold text-primary tabular-nums">#QT-9810</span>
+</td>
+<td class="px-6 py-5 font-semibold text-slate-700">Bimbo S.A.</td>
+<td class="px-6 py-5">
+<div class="flex flex-col">
+<span class="text-sm font-medium text-slate-800">Turbo</span>
+<span class="text-xs text-slate-400 font-mono tracking-tighter">KLM-2022</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-black uppercase tracking-wider">
+                                        Finalizado
+                                    </span>
+</td>
+<td class="px-6 py-5 font-mono text-sm font-medium text-slate-400">07:00 AM</td>
+<td class="px-6 py-5">
+<span class="px-3 py-1 bg-surface-container-high rounded-lg font-bold text-slate-400 text-xs">SALIDA</span>
+</td>
+<td class="px-8 py-5 text-right">
+<button class="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-primary transition-all">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination/Footer -->
+<div class="px-8 py-6 border-t border-slate-100 flex justify-between items-center">
+<p class="text-xs font-medium text-slate-500">Mostrando 1-10 de 142 registros</p>
+<div class="flex gap-2">
+<button class="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white font-bold text-sm">1</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors font-bold text-sm">2</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors font-bold text-sm">3</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-400 hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Contextual Insights Section -->
+<div class="mt-8 grid grid-cols-3 gap-6">
+<div class="col-span-1 bg-surface-container-highest/30 rounded-2xl p-6 relative overflow-hidden">
+<div class="relative z-10">
+<h4 class="text-lg font-extrabold text-primary brand-font mb-4">Ubicación Muelles</h4>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs font-bold text-slate-600">SECTOR A (Secos)</span>
+<span class="text-xs font-black text-tertiary-container">8/10 Activos</span>
+</div>
+<div class="w-full bg-slate-200 rounded-full h-1.5">
+<div class="bg-tertiary-container h-1.5 rounded-full" style="width: 80%"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs font-bold text-slate-600">SECTOR B (Fríos)</span>
+<span class="text-xs font-black text-on-error-container">2/5 Activos</span>
+</div>
+<div class="w-full bg-slate-200 rounded-full h-1.5">
+<div class="bg-error h-1.5 rounded-full" style="width: 40%"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="col-span-2 bg-gradient-to-br from-primary-container to-primary rounded-2xl p-6 flex justify-between items-center relative overflow-hidden">
+<div class="space-y-2 relative z-10">
+<h4 class="text-xl font-bold text-white brand-font">Protocolo de Alta Velocidad Activo</h4>
+<p class="text-primary-fixed-dim text-sm max-w-sm">El CEDI se encuentra en capacidad máxima. Todos los muelles deben reportar tiempos de descarga menores a 45 minutos.</p>
+<button class="mt-4 px-6 py-2 bg-white text-primary rounded-full text-xs font-extrabold shadow-lg hover:scale-105 transition-transform">
+                            Ver Lineamientos
+                        </button>
+</div>
+<div class="relative z-10 opacity-20 transform scale-150 rotate-12">
+<span class="material-symbols-outlined text-[120px] text-white" data-icon="bolt">bolt</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>
