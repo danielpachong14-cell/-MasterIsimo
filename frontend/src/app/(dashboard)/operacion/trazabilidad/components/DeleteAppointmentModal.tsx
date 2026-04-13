@@ -38,7 +38,8 @@ export function DeleteAppointmentModal({
 
       onSuccess()
       onClose()
-    } catch (error: any) {
+    } catch (e: unknown) {
+      const error = e as { message?: string };
       console.error("Error deleting appointment:", error)
       alert(`Ocurrió un error al eliminar la cita: ${error.message || "Error desconocido"}`)
     } finally {

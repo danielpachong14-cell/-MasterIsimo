@@ -54,7 +54,7 @@ export function EditAppointmentModal({
       const selectedVehicle = vehicleTypes.find(v => v.id.toString() === formData.vehicle_type_id)
 
       // Calculate changed fields
-      const changed_fields: Record<string, any> = {}
+      const changed_fields: Record<string, unknown> = {}
       if (appointment.company_name !== formData.company_name) changed_fields.company_name = { old: appointment.company_name, new: formData.company_name }
       if (appointment.license_plate !== formData.license_plate) changed_fields.license_plate = { old: appointment.license_plate, new: formData.license_plate }
       if (appointment.driver_name !== formData.driver_name) changed_fields.driver_name = { old: appointment.driver_name, new: formData.driver_name }
@@ -102,7 +102,8 @@ export function EditAppointmentModal({
       alert("Cambios guardados correctamente.")
       onSuccess()
       onClose()
-    } catch (error: any) {
+    } catch (e: unknown) {
+      const error = e as { message?: string };
       console.error("Error editing appointment:", error)
       alert(`Error al guardar los cambios: ${error.message || "Error desconocido"}`)
     } finally {

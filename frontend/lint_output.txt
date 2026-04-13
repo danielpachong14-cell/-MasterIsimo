@@ -1,0 +1,38 @@
+
+> frontend@0.1.0 lint
+> eslint
+
+
+/Volumes/SSD Daniel/Proyectos/Abastecimiento Isimo/frontend/src/app/(auth)/login/page.tsx
+  10:10  error  'Card' is defined but never used          @typescript-eslint/no-unused-vars
+  10:16  error  'CardContent' is defined but never used   @typescript-eslint/no-unused-vars
+  55:14  error  'err' is defined but never used           @typescript-eslint/no-unused-vars
+  55:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Volumes/SSD Daniel/Proyectos/Abastecimiento Isimo/frontend/src/app/(auth)/registro/page.tsx
+  73:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Volumes/SSD Daniel/Proyectos/Abastecimiento Isimo/frontend/src/app/(dashboard)/admin/configuracion/page.tsx
+   26:52  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+   34:50  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+   71:50  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+   76:15  error  'environment' is assigned a value but never used   @typescript-eslint/no-unused-vars
+   76:28  error  'vehicle_type' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   76:42  error  'category' is assigned a value but never used      @typescript-eslint/no-unused-vars
+   76:52  error  'created_at' is assigned a value but never used    @typescript-eslint/no-unused-vars
+   76:64  error  'updated_at' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  103:21  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  112:50  error  Unexpected any. Specify a different type           @typescript-eslint/no-explicit-any
+  123:14  error  'error' is defined but never used                  @typescript-eslint/no-unused-vars
+
+/Volumes/SSD Daniel/Proyectos/Abastecimiento Isimo/frontend/src/app/(dashboard)/operacion/muelles/page.tsx
+  269:6  warning  React Hook useCallback has a missing dependency: 'handleConfirmExtendAction'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Volumes/SSD Daniel/Proyectos/Abastecimiento Isimo/frontend/src/app/(dashboard)/operacion/trazabilidad/page.tsx
+  3:44  error  'useRef' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Volumes/SSD Daniel/Proyectos/Abastecimiento Isimo/frontend/src/app/layout.tsx
+  30:9  warning  Custom fonts not added in `pages/_document.js` will only load for a single page. This is discouraged. See: https://nextjs.org/docs/messages/no-page-custom-font  @next/next/no-page-custom-font
+
+✖ 19 problems (17 errors, 2 warnings)
+

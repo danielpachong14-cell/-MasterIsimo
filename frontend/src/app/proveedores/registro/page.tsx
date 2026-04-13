@@ -53,6 +53,7 @@ export default function SupplierRegistrationPage() {
       if (data) setVehicles(data)
     }
     loadVehicles()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleNextStep = () => {
@@ -74,6 +75,7 @@ export default function SupplierRegistrationPage() {
     if (step === 3 && formData.scheduledDate && formData.vehicleTypeId && getTotalBoxCount() > 0) {
       loadSlots()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, formData.scheduledDate, formData.vehicleTypeId])
 
   async function loadSlots() {
@@ -145,8 +147,9 @@ export default function SupplierRegistrationPage() {
       if (poError) throw poError
 
       setStep(4) // Success layout
-    } catch (error: any) {
-      setErrorMessage(error.message || "Hubo un error inesperado al registrar el agendamiento.")
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      setErrorMessage(err.message || "Hubo un error inesperado al registrar el agendamiento.")
     } finally {
       setLoading(false)
     }

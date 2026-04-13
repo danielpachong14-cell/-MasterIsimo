@@ -14,7 +14,7 @@ export default function KanbanPage() {
   // Centralized data fetching handling all uncompleted operations
   const fetchData = useCallback(async () => {
     // 1. Fetch appointments that are currently active (not finalized or cancelled)
-    const { data: apptData, error: apptErr } = await supabase
+    const { data: apptData } = await supabase
       .from('appointments')
       .select('*, appointment_purchase_orders(*)')
       .in('status', ['PENDIENTE', 'EN_PORTERIA', 'EN_MUELLE', 'DESCARGANDO'])

@@ -70,7 +70,8 @@ export default function RegistroPage() {
       }
 
       setSuccess(true)
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       setError(err.message || "Error al crear la cuenta.")
     } finally {
       setLoading(false)

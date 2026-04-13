@@ -7,7 +7,6 @@ import * as z from "zod"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { Card, CardContent } from "@/components/ui/Card"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -52,7 +51,7 @@ export default function LoginPage() {
 
       router.push("/operacion/kanban")
       router.refresh()
-    } catch (err: any) {
+    } catch {
       if (!error) {
         setError("Error de conexión. Por favor intente de nuevo.")
       }

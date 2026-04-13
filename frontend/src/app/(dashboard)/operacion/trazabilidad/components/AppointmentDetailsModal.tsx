@@ -45,7 +45,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       
       const { error } = await supabase
         .from('appointments')
-        .update({ notes: updatedNotes } as any)
+        .update({ notes: updatedNotes })
         .eq('id', appointment.id)
 
       if (error) throw error
@@ -54,7 +54,8 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       setNewNote("") // Clears the textarea after appending
       onSuccess?.()
       // We explicitly don't close the modal so they can continue looking at the history.
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string, code?: string };
       if (err.message?.includes("column") || err.code === 'PGRST204') {
         alert("⚠️ Error: La base de datos requiere una actualización.\n\nPor favor ejecuta este comando en el Editor SQL de tu Supabase:\n\nALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS notes text;")
       } else {
@@ -77,7 +78,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     try {
       const { error } = await supabase
         .from('appointments')
-        .update({ notes: editingContent } as any)
+        .update({ notes: editingContent })
         .eq('id', appointment.id)
 
       if (error) throw error
@@ -85,7 +86,8 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       setNoteHistory(editingContent)
       setIsEditingHistory(false)
       onSuccess?.()
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string, code?: string };
       if (err.message?.includes("column") || err.code === 'PGRST204') {
         alert("⚠️ Error: La base de datos requiere una actualización.\n\nPor favor ejecuta este comando en el Editor SQL de tu Supabase:\n\nALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS notes text;")
       } else {

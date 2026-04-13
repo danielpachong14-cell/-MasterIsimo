@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { Appointment, Dock, CediSettings } from "@/types"
 import { parseTime } from "@/lib/services/scheduling"
 import { cn } from "@/lib/utils"
@@ -146,7 +145,7 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [dragState, docks, onAppointmentMove])
+  }, [dragState, docks, onAppointmentMove, cellWidth, zoomLevel])
 
   // ─── Resize Handlers ──────────────────────────────────────
   const handleResizeDown = (e: React.MouseEvent, appointment: Appointment) => {
@@ -196,7 +195,7 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
       window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [resizingState, onAppointmentExtend])
+  }, [resizingState, onAppointmentExtend, cellWidth, zoomLevel])
 
   // 🕒 Current Time Tracker (Real-time update)
   const [currentTime, setCurrentTime] = useState(new Date())

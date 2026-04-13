@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'PENDIENTE' | 'EN_PORTERIA' | 'EN_MUELLE' | 'DESCARGANDO' | 'FINALIZADO' | 'CANCELADO';
+export type AppointmentStatus = 'PENDIENTE' | 'EN_PORTERIA' | 'EN_PATIO' | 'EN_MUELLE' | 'DESCARGANDO' | 'FINALIZADO' | 'CANCELADO';
 
 export interface AppointmentPurchaseOrder {
   id: string;
@@ -71,7 +71,7 @@ export interface AppointmentAuditLog {
   appointment_id: string;
   user_id?: string | null;
   action: 'CREATE' | 'EDIT' | 'CANCEL' | 'STATUS_CHANGE' | 'WALK_IN';
-  changed_fields?: Record<string, any>;
+  changed_fields?: Record<string, unknown>;
   notes?: string | null;
   created_at: string;
 }
@@ -114,6 +114,17 @@ export interface UserProfile {
   role_id: number;
   role_name?: string;
   created_at: string;
+}
+
+export interface UserSession {
+  id: string;
+  user_id: string;
+  created_at: string;
+  last_accessed_at?: string;
+  last_sign_in_at: string;
+  ip_address: string;
+  user_agent: string;
+  is_current: boolean;
 }
 
 // ─── Scheduling Engine Domain ────────────────────────────────
@@ -189,15 +200,9 @@ export interface UserActivityLog {
   user_id: string;
   event_type: string;
   description: string;
-  metadata?: Record<string, any> | null;
+  metadata?: Record<string, unknown> | null;
+  ip_address?: string | null;
   created_at: string;
 }
 
-export interface UserSession {
-  id: string;
-  user_id: string;
-  created_at: string;
-  last_accessed_at?: string;
-  ua?: string;
-  is_current: boolean;
-}
+// Removed duplicated UserSession - now unified above

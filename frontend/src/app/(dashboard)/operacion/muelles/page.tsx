@@ -259,19 +259,10 @@ export default function MuellesPage() {
     }
   }
 
-  const handleAppointmentExtend = useCallback((appointmentId: string, newEndTime?: string) => {
-    if (newEndTime) {
-      // Direct update via cascading shift
-      handleConfirmExtendAction(appointmentId, newEndTime)
-    } else {
-      setExtendModal(appointmentId)
-    }
-  }, [appointments])
-
-  const handleConfirmExtendAction = async (id: string, endTime: string) => {
+  const handleConfirmExtendAction = useCallback(async (id: string, endTime: string) => {
     setActionLoading(true)
     
-    const { data, error } = await supabase.rpc('shift_appointments_on_resize', {
+    const { error } = await supabase.rpc('shift_appointments_on_resize', {
       p_appointment_id: id,
       p_new_end_time: endTime
     })
@@ -280,17 +271,21 @@ export default function MuellesPage() {
     setExtendModal(null)
 
     if (error) {
-      showToast('Error al procesar el desplazamiento: ' + error.message, 'error')
+      showToast('Error al extender cita. Posible conflicto de muelles.', 'error')
     } else {
-      const { shifted_count } = data[0] || { shifted_count: 0 }
-      if (shifted_count > 0) {
-        showToast(`Cita extendida. Se desplazaron ${shifted_count} vehículos para evitar choques.`, 'success')
-      } else {
-        showToast('Cita extendida exitosamente.', 'success')
-      }
+      showToast('Agenda ajustada correctamente.', 'success')
       fetchData()
     }
-  }
+  }, [supabase, fetchData])
+
+  const handleAppointmentExtend = useCallback((appointmentId: string, newEndTime?: string) => {
+    if (newEndTime) {
+      // Direct update via cascading shift
+      handleConfirmExtendAction(appointmentId, newEndTime)
+    } else {
+      setExtendModal(appointmentId)
+    }
+  }, [handleConfirmExtendAction])
 
   const handleConfirmExtend = async () => {
     if (!extendModal) return

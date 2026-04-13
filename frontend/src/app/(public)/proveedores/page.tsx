@@ -1,5 +1,4 @@
 import { SupplierForm } from "@/components/features/SupplierForm"
-import Image from "next/image"
 
 export default function ProveedoresPage() {
   return (

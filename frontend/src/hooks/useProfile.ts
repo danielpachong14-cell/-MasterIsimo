@@ -39,9 +39,10 @@ export function useProfile() {
             role_name: data.roles?.name || 'Usuario'
           })
         }
-      } catch (err: any) {
+      } catch (e: unknown) {
+        const err = e as { message?: string };
         console.error("Error fetching profile:", err)
-        setError(err.message)
+        setError(err.message || "Error desconocido")
       } finally {
         setLoading(false)
       }
@@ -77,7 +78,7 @@ export function useProfile() {
         supabase.removeChannel(channel)
       }
     }
-  }, [])
+  }, [supabase])
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     try {
@@ -91,7 +92,8 @@ export function useProfile() {
       
       setProfile(prev => prev ? { ...prev, ...updates } : null)
       return { success: true }
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       console.error("Error updating profile:", err)
       return { success: false, error: err.message }
     } finally {
@@ -131,7 +133,8 @@ export function useProfile() {
       })
 
       return { success: true }
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       console.error("Error changing password:", err)
       return { success: false, error: err.message }
     } finally {
@@ -148,7 +151,8 @@ export function useProfile() {
       
       setSessions(data || [])
       return { success: true, data }
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       console.error("Error fetching sessions:", err)
       return { success: false, error: err.message }
     } finally {
@@ -174,7 +178,8 @@ export function useProfile() {
 
       await fetchSessions() // Refresh list
       return { success: true }
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       console.error("Error logging out others:", err)
       return { success: false, error: err.message }
     } finally {
@@ -198,7 +203,8 @@ export function useProfile() {
       if (activityError) throw activityError
       setActivities(data || [])
       return { success: true, data }
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       console.error("Error fetching activity log:", err)
       return { success: false, error: err.message }
     } finally {

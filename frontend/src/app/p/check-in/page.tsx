@@ -12,7 +12,7 @@ export default function CheckInPage() {
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [appointments, setAppointments] = useState<any[]>([])
-  const [selectedAppt, setSelectedAppt] = useState<any>(null)
+  const [selectedAppt, setSelectedAppt] = useState<any | null>(null)
   const [message, setMessage] = useState('')
 
   // Form Data for "FOUND" state updates
@@ -51,7 +51,8 @@ export default function CheckInPage() {
         setStep('NOT_FOUND')
         setLicensePlate(searchTerm) // Pre-fill plate with whatever they typed
       }
-    } catch (error: any) {
+    } catch (e: unknown) {
+      const error = e as { message?: string };
       setStep('ERROR')
       setMessage(error.message || 'Ocurrió un error al buscar')
     } finally {
@@ -59,6 +60,7 @@ export default function CheckInPage() {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSelectAppt = (appt: any) => {
     setSelectedAppt(appt)
     setDriverName(appt.driver_name || '')
@@ -71,7 +73,7 @@ export default function CheckInPage() {
     setLoading(true)
     try {
       const { data, error } = await supabase.rpc('process_arrival_check_in', {
-        p_appointment_id: selectedAppt.id,
+        p_appointment_id: selectedAppt?.id,
         p_driver_id_card: driverId,
         p_driver_name: driverName,
         p_license_plate: licensePlate
@@ -79,10 +81,11 @@ export default function CheckInPage() {
 
       if (error) throw error
       
-      const { punctuality, appointment_number } = data
+      const { punctuality } = data
       setMessage(`Puntualidad: ${punctuality === 'A_TIEMPO' ? 'A Tiempo' : punctuality === 'TARDE' ? 'Tarde' : 'Temprano'}`)
       setStep('SUCCESS')
-    } catch (error: any) {
+    } catch (e: unknown) {
+      const error = e as { message?: string };
       alert(error.message || 'Error al registrar llegada')
     } finally {
       setLoading(false)
@@ -93,7 +96,7 @@ export default function CheckInPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const { data, error } = await supabase.rpc('register_walk_in_check_in', {
+      const { error } = await supabase.rpc('register_walk_in_check_in', {
         p_company_name: wiCompany,
         p_license_plate: licensePlate,
         p_driver_name: driverName,
@@ -106,7 +109,8 @@ export default function CheckInPage() {
       
       setMessage('Llegada Registrada como Novedad (Sin Cita)')
       setStep('SUCCESS')
-    } catch (error: any) {
+    } catch (e: unknown) {
+      const error = e as { message?: string };
       alert(error.message)
     } finally {
       setLoading(false)
@@ -146,9 +150,9 @@ export default function CheckInPage() {
         <form onSubmit={handleConfirmArrival} className="bg-white p-6 rounded-3xl shadow-float space-y-6">
           <div className="text-center space-y-1 pb-4 border-b border-outline-variant/30">
             <span className="inline-block px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full mb-2 uppercase">Cita Encontrada</span>
-            <h2 className="text-xl font-black font-headline text-primary">{selectedAppt.company_name}</h2>
+            <h2 className="text-xl font-black font-headline text-primary">{selectedAppt?.company_name}</h2>
             <p className="text-sm font-bold opacity-80">
-              Hora Programada: {selectedAppt.scheduled_time.substring(0,5)}
+              Hora Programada: {selectedAppt?.scheduled_time?.substring(0,5)}
             </p>
           </div>
 

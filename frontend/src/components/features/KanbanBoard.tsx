@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
 import {
   DndContext,
   DragOverlay,
@@ -14,8 +14,7 @@ import {
   DragEndEvent,
   defaultDropAnimationSideEffects,
 } from "@dnd-kit/core"
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
-import { createClient } from "@/lib/supabase/client"
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Appointment, AppointmentStatus } from "@/types"
 import { KanbanColumn } from "./KanbanColumn"
 import { KanbanCard } from "./KanbanCard"
@@ -87,7 +86,7 @@ export function KanbanBoard({ appointments, onStatusChange }: KanbanBoardProps) 
     }
 
     if (newStatus !== appointment.status) {
-      await onStatusChange(activeId, newStatus)
+      await onStatusChange(String(activeId), newStatus)
     }
   }
 

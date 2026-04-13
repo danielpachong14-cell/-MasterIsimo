@@ -36,7 +36,7 @@ export default function ProfilePage() {
     } else if (activeTab === 'activity') {
       fetchActivityLog()
     }
-  }, [activeTab])
+  }, [activeTab, fetchSessions, fetchActivityLog])
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -287,7 +287,7 @@ export default function ProfilePage() {
                 <h3 className="font-black text-xs uppercase tracking-widest text-primary/60">Sesiones Dispositivos Relacionados</h3>
                 <Button 
                   onClick={handleLogoutOthers}
-                  variant="outline" 
+                  variant="secondary" 
                   size="sm"
                   className="text-[10px] font-black uppercase tracking-tighter border-error/30 text-error hover:bg-error/5 h-8"
                 >
@@ -312,7 +312,7 @@ export default function ProfilePage() {
                             )}
                           </div>
                           <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-tight mt-0.5">
-                            IP: {session.ip_address} • {new Date(session.last_sign_in_at).toLocaleString('es-CO', {
+                            IP: {session.ip_address} • {new Date(session.last_sign_in_at as any).toLocaleString('es-CO', {
                               day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
                             })}
                           </p>
@@ -338,7 +338,7 @@ export default function ProfilePage() {
               <Card variant="elevated" className="overflow-hidden border-none shadow-float p-8">
                 <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-surface-container-highest before:to-transparent">
                   {activities.length > 0 ? (
-                    activities.map((activity, index) => {
+                    activities.map((activity) => {
                       const { icon, color, bg } = getEventIcon(activity.event_type);
                       return (
                         <div key={activity.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
@@ -415,7 +415,7 @@ export default function ProfilePage() {
             <div className="space-y-3">
               <Button 
                 onClick={() => setActiveTab('general')}
-                variant={activeTab === 'general' ? 'default' : 'outline'} 
+                variant={activeTab === 'general' ? 'primary' : 'tertiary'} 
                 className={`w-full justify-start gap-3 h-12 ${activeTab === 'general' ? 'bg-primary shadow-elevated' : 'border-surface-container hover:bg-surface-container-low'}`}
               >
                 <span className={`material-symbols-outlined ${activeTab === 'general' ? 'text-white' : 'text-primary'}`}>person</span>
@@ -424,7 +424,7 @@ export default function ProfilePage() {
               
               <Button 
                 onClick={() => setActiveTab('security')}
-                variant={activeTab === 'security' ? 'default' : 'outline'} 
+                variant={activeTab === 'security' ? 'primary' : 'tertiary'} 
                 className={`w-full justify-start gap-3 h-12 shadow-none ${activeTab === 'security' ? 'bg-orange-600 shadow-elevated hover:bg-orange-700' : 'border-surface-container hover:bg-surface-container-low'}`}
               >
                 <span className={`material-symbols-outlined ${activeTab === 'security' ? 'text-white' : 'text-orange-600'}`}>lock_reset</span>
@@ -433,7 +433,7 @@ export default function ProfilePage() {
 
               <Button 
                 onClick={() => setActiveTab('activity')}
-                variant={activeTab === 'activity' ? 'default' : 'outline'} 
+                variant={activeTab === 'activity' ? 'primary' : 'tertiary'} 
                 className={`w-full justify-start gap-3 h-12 shadow-none ${activeTab === 'activity' ? 'bg-[#381368] shadow-elevated hover:bg-[#2a0e4e]' : 'border-surface-container hover:bg-surface-container-low'}`}
               >
                 <span className={`material-symbols-outlined ${activeTab === 'activity' ? 'text-white' : 'text-[#381368]'}`}>history</span>
@@ -442,7 +442,7 @@ export default function ProfilePage() {
 
               <Button 
                 onClick={() => setActiveTab('sessions')}
-                variant={activeTab === 'sessions' ? 'default' : 'outline'} 
+                variant={activeTab === 'sessions' ? 'primary' : 'tertiary'} 
                 className={`w-full justify-start gap-3 h-12 shadow-none ${activeTab === 'sessions' ? 'bg-[#381368] shadow-elevated hover:bg-[#2a0e4e]' : 'border-surface-container hover:bg-surface-container-low'}`}
               >
                 <span className={`material-symbols-outlined ${activeTab === 'sessions' ? 'text-white' : 'text-[#381368]'}`}>devices</span>

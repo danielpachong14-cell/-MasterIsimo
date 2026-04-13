@@ -189,7 +189,6 @@ export default function ResumenDiarioPage() {
         <div className="space-y-6">
           {summaries.map((s) => {
             const normalPct = getPercentage(s.currentBoxes, s.normalLimit)
-            const extendedPct = getPercentage(s.currentBoxes, s.extendedLimit)
             const barColor = getBarColor(s.currentBoxes, s.normalLimit, s.extendedLimit)
             const status = getStatusLabel(s.currentBoxes, s.normalLimit, s.extendedLimit)
             const barWidth = s.extendedLimit > 0 ? Math.min((s.currentBoxes / s.extendedLimit) * 100, 100) : 0

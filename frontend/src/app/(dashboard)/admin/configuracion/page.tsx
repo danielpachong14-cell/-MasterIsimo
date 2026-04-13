@@ -23,6 +23,7 @@ export default function ConfiguracionPage() {
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [docks, setDocks] = useState<Dock[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [cediSettings, setCediSettings] = useState<any>(null)
   
   // --- ESTADOS DE CARGA ---
@@ -31,6 +32,7 @@ export default function ConfiguracionPage() {
   
   // --- ESTADO DE MODALES Y EDICIÓN ---
   const [activeModal, setActiveModal] = useState<'env' | 'limit' | 'rule' | 'vehicle' | 'category' | 'dock' | 'cedi' | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [editingItem, setEditingItem] = useState<any>(null)
 
   const supabase = createClient()
@@ -68,11 +70,13 @@ export default function ConfiguracionPage() {
 
   // --- HANDLERS GENÉRICOS ---
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSave = async (table: string, data: any) => {
     setSaving(true)
     try {
       // 1. Limpieza profunda del payload
       // Extraemos relaciones y campos automáticos que fallarían en un 'upsert'
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { environment, vehicle_type, category, created_at, updated_at, ...cleanPayload } = data
       
       // 2. Manejo de ID y campos por defecto
@@ -100,7 +104,8 @@ export default function ConfiguracionPage() {
       setActiveModal(null)
       setEditingItem(null)
       fetchData()
-    } catch (error: any) {
+    } catch (e: unknown) {
+      const error = e as { message?: string };
       console.groupEnd()
       alert(`⚠️ Problema al guardar en ${table}:\n${error.message || error}`)
       console.error(error)
@@ -109,7 +114,7 @@ export default function ConfiguracionPage() {
     }
   }
 
-  const handleDelete = async (table: string, id: any, logical: boolean = true) => {
+  const handleDelete = async (table: string, id: string | number, logical: boolean = true) => {
     const action = logical ? "Desactivar" : "Eliminar"
     if (!confirm(`¿Estás seguro de que deseas ${action.toLowerCase()} este registro?`)) return
     
@@ -120,7 +125,7 @@ export default function ConfiguracionPage() {
       
       if (error) throw error
       fetchData()
-    } catch (error) {
+    } catch {
       alert(`Error al procesar acción en ${table}`)
     }
   }

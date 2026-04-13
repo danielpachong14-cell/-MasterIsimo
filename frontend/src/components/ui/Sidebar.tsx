@@ -44,7 +44,7 @@ export function Sidebar() {
       }
     }
     fetchRole()
-  }, [])
+  }, [supabase])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()

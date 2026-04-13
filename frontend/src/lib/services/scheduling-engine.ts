@@ -4,9 +4,7 @@ import type {
   CapacityCheckResult,
   AvailableSlot,
   SchedulingRule,
-  DailyCapacityLimit,
   Dock,
-  Appointment,
 } from "@/types"
 
 // ─── Paso 1: Validación de Capacidad Diaria (Soft Limits) ───
@@ -59,12 +57,12 @@ export async function checkDailyCapacity(
     console.error("Error fetching existing appointments for capacity:", appointmentsError)
   }
 
-  const currentBoxes = (existingAppointments || []).reduce((total: number, appt: any) => {
-    const poBoxes = (appt as any).appointment_purchase_orders?.reduce(
+  const currentBoxes = (existingAppointments || []).reduce((total: number, appt: { box_count?: number, appointment_purchase_orders?: { box_count: number }[] }) => {
+    const poBoxes = appt.appointment_purchase_orders?.reduce(
       (s: number, po: { box_count: number }) => s + (po.box_count || 0),
       0
     ) || 0
-    return total + (poBoxes || (appt as any).box_count || 0)
+    return total + (poBoxes || appt.box_count || 0)
   }, 0)
 
   const projectedTotal = currentBoxes + newBoxes

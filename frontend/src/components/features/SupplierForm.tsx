@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useForm, useFieldArray } from "react-hook-form"
+import { useForm, useFieldArray, SubmitHandler } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { cn } from "@/lib/utils"
@@ -11,6 +11,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { createClient } from "@/lib/supabase/client"
 import { runSchedulingEngine } from "@/lib/services/scheduling-engine"
 import type { VehicleType, Environment, ProductCategory, AvailableSlot, CapacityCheckResult, SchedulingRule } from "@/types"
+
+interface ConfirmedAppointment {
+  id: number;
+  appointment_number: string;
+  license_plate: string;
+  driver_name: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  environment_id: number;
+  requires_extended_hours: boolean;
+  status: string;
+}
 
 const appointmentSchema = z.object({
   company_name: z.string().min(3, "Mínimo 3 caracteres"),
@@ -37,7 +49,7 @@ export function SupplierForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [confirmedAppointment, setConfirmedAppointment] = useState<any>(null)
+  const [confirmedAppointment, setConfirmedAppointment] = useState<ConfirmedAppointment | null>(null)
   const supabase = createClient()
 
   // Reference data
@@ -65,10 +77,13 @@ export function SupplierForm() {
     watch,
     formState: { errors },
   } = useForm<AppointmentForm>({
-    resolver: zodResolver(appointmentSchema),
+    resolver: zodResolver(appointmentSchema) as any,
     defaultValues: {
       scheduled_date: new Date().toISOString().split('T')[0],
-      purchase_orders: [{ po_number: "", box_count: 0 }]
+      purchase_orders: [{ po_number: "", box_count: 0 }],
+      vehicle_type_id: 0,
+      environment_id: 0,
+      category_id: 0
     }
   })
 
@@ -93,7 +108,7 @@ export function SupplierForm() {
       setLoadingRef(false)
     }
     load()
-  }, [])
+  }, [supabase])
 
   // Calculate total boxes from POs
   const totalBoxes = watch("purchase_orders").reduce((sum, po) => sum + (Number(po.box_count) || 0), 0)
@@ -122,7 +137,7 @@ export function SupplierForm() {
       setLoadingSlots(false)
     }
     calculate()
-  }, [step, watchDate, watchEnvId, watchVehicleTypeId, watchCategoryId, totalBoxes])
+  }, [step, watchDate, watchEnvId, watchVehicleTypeId, watchCategoryId, totalBoxes, setValue])
 
   const handleSelectSlot = (slot: AvailableSlot) => {
     setSelectedSlot(slot)
@@ -140,7 +155,7 @@ export function SupplierForm() {
 
   const prevStep = () => setStep(step - 1)
 
-  const onSubmit = async (data: AppointmentForm) => {
+  const onSubmit: SubmitHandler<AppointmentForm> = async (data) => {
     if (!selectedSlot) {
       setError("Selecciona un horario disponible.")
       return
@@ -204,7 +219,8 @@ export function SupplierForm() {
       
       setConfirmedAppointment(newAppointment)
       setSuccess(true)
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       setError(err.message || "Ocurrió un error al agendar la cita")
     } finally {
       setLoading(false)
@@ -271,6 +287,7 @@ export function SupplierForm() {
               </div>
               
               <div className="p-4 bg-surface-container-low rounded-3xl border border-white flex flex-col items-center gap-2 shadow-sm shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qrUrl} alt="QR Check-in" className="w-40 h-40 mix-blend-multiply opacity-90" />
                 <p className="text-[8px] font-black uppercase tracking-tighter text-on-surface-variant/40">Presentar para Check-in</p>
               </div>

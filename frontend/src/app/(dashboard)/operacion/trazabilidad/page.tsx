@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Appointment, VehicleType, PaginatedResult } from "@/types"
 import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { cn, formatDate, formatTime } from "@/lib/utils"
+import { cn, formatTime } from "@/lib/utils"
 
 import { WalkInModal } from "./components/WalkInModal"
 import { EditAppointmentModal } from "./components/EditAppointmentModal"
@@ -31,8 +31,7 @@ export default function TrazabilidadPage() {
     companyName: ''
   })
   
-  // Debounce refs para filtros de texto
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
 
   // Modales
   const [isWalkInOpen, setIsWalkInOpen] = useState(false)
@@ -122,7 +121,7 @@ export default function TrazabilidadPage() {
       const { data: { user } } = await supabase.auth.getUser()
       
       // 1. Actualizar el estado con verificación y Auto-KPIs de tiempo
-      const updates: any = { status: newStatus }
+      const updates: Record<string, string> = { status: newStatus }
       
       if (newStatus === 'DESCARGANDO') {
         updates.start_unloading_time = new Date().toISOString()
@@ -152,7 +151,8 @@ export default function TrazabilidadPage() {
       }
 
       fetchAppointments()
-    } catch (err: any) {
+    } catch (e: unknown) {
+      const err = e as { message?: string };
       console.error("Error updating status:", err)
       alert(`No se pudo actualizar el estado: ${err.message || "Error desconocido"}`)
     }
