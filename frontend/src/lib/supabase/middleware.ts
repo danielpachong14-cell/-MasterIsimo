@@ -101,7 +101,7 @@ export async function updateSession(request: NextRequest) {
       }
     }
 
-    const publicRoutes = ['/proveedores', '/login', '/registro']
+    const publicRoutes = ['/proveedores', '/login', '/registro', '/p']
     const pathname = request.nextUrl.pathname;
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 

@@ -19,6 +19,7 @@ export default function CheckInPage() {
   // Form Data for "FOUND" state updates
   const [driverName, setDriverName] = useState('')
   const [driverId, setDriverId] = useState('')
+  const [driverPhone, setDriverPhone] = useState('')
   const [licensePlate, setLicensePlate] = useState('')
 
   // Form Data for "NOT_FOUND" (Walk-in) state
@@ -66,6 +67,7 @@ export default function CheckInPage() {
     setSelectedAppt(appt)
     setDriverName(appt.driver_name || '')
     setDriverId(appt.driver_id_card || '')
+    setDriverPhone(appt.driver_phone || '')
     setLicensePlate(appt.license_plate || '')
   }
 
@@ -77,6 +79,7 @@ export default function CheckInPage() {
         p_appointment_id: selectedAppt?.id,
         p_driver_id_card: driverId,
         p_driver_name: driverName,
+        p_driver_phone: driverPhone,
         p_license_plate: licensePlate
       })
 
@@ -102,6 +105,7 @@ export default function CheckInPage() {
         p_license_plate: licensePlate,
         p_driver_name: driverName,
         p_driver_id_card: driverId,
+        p_driver_phone: driverPhone,
         p_po_number: wiPoNumber,
         p_box_count: wiBoxes
       })
@@ -179,6 +183,13 @@ export default function CheckInPage() {
               onChange={e => setDriverName(e.target.value)}
               required
             />
+            <Input 
+              label="Celular Conductor" 
+              type="tel"
+              value={driverPhone}
+              onChange={e => setDriverPhone(e.target.value)}
+              required
+            />
           </div>
 
           <div className="flex gap-3">
@@ -231,6 +242,9 @@ export default function CheckInPage() {
             <Input label="Cédula" required type="number" value={driverId} onChange={e => setDriverId(e.target.value)} />
             <div className="col-span-2">
               <Input label="Nombre del Conductor" required value={driverName} onChange={e => setDriverName(e.target.value)} />
+            </div>
+            <div className="col-span-2">
+              <Input label="Celular del Conductor" required type="tel" value={driverPhone} onChange={e => setDriverPhone(e.target.value)} />
             </div>
             <Input label="No. OC (Opcional)" value={wiPoNumber} onChange={e => setWiPoNumber(e.target.value)} />
             <Input label="Total Cajas (Aprox)" type="number" value={wiBoxes} onChange={e => setWiBoxes(e.target.value)} />
