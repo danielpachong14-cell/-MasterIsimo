@@ -170,7 +170,7 @@ export function SupplierForm() {
       async function checkDuplicates() {
         for (const po of posToCheck) {
           // Normalización para la búsqueda
-          const { data, count, error } = await supabase
+          const { data, count } = await supabase
             .from('appointment_purchase_orders')
             .select(`
               po_number,
@@ -186,7 +186,12 @@ export function SupplierForm() {
 
           if (data && data.length > 0) {
             const result = data[0]
-            const appt = result.appointment as any
+            const appt = result.appointment as unknown as {
+              company_name: string;
+              license_plate: string;
+              scheduled_date: string;
+              scheduled_time: string;
+            } | null
             
             setPoWarnings(prev => ({
               ...prev,

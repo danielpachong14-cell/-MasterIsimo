@@ -1,4 +1,3 @@
-import { cn } from "@/lib/utils"
 import * as React from "react"
 
 interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -6,7 +5,7 @@ interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
-  ({ className, label, ...props }, ref) => {
+  ({ label, ...props }, ref) => {
     return (
       <label className="flex items-center gap-3 cursor-pointer group select-none">
         <div className="relative flex items-center justify-center">
