@@ -56,11 +56,12 @@ export async function getAvailableSlots(date: string, requiredRealMinutes: numbe
   const { data: settings } = await supabase.from('cedi_settings').select('*').single()
   if (!settings) return []
   
-  // 2. Obtener todos los muelles activos
+  // 2. Obtener muelles ACTIVOS y que permitan DESCARGA (o mixtos autorizados)
   const { data: docks } = await supabase
     .from('docks')
     .select('id')
     .eq('is_active', true)
+    .or(`type.eq.DESCARGUE,and(type.eq.MIXTO,is_unloading_authorized.eq.true)`)
     .order('priority', { ascending: true })
   
   if (!docks || docks.length === 0) return []

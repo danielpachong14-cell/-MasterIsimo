@@ -24,6 +24,16 @@ interface ConfirmedAppointment {
   status: string;
 }
 
+interface POWarning {
+  count: number;
+  latestAppointment: {
+    company_name: string;
+    license_plate: string;
+    scheduled_date: string;
+    scheduled_time: string;
+  };
+}
+
 const appointmentSchema = z.object({
   company_name: z.string().min(3, "Mínimo 3 caracteres"),
   vehicle_type_id: z.coerce.number().min(1, "Tipo de vehículo requerido"),
@@ -31,10 +41,11 @@ const appointmentSchema = z.object({
   category_id: z.coerce.number().min(1, "Categoría requerida"),
   license_plate: z.string().min(3, "Placa requerida"),
   driver_name: z.string().min(5, "Nombre completo"),
-  driver_phone: z.string().min(7, "Teléfono de contacto"),
+  driver_id_card: z.string().min(5, "Mínimo 5 dígitos").max(20, "Máximo 20 dígitos").regex(/^\d+$/, "Solo números permitidos"),
+  driver_phone: z.string().length(10, "Exactamente 10 números").regex(/^\d+$/, "Solo números permitidos"),
   purchase_orders: z.array(
     z.object({
-      po_number: z.string().min(3, "Mínimo 3 caracteres"),
+      po_number: z.string().min(3, "Mínimo 3 caracteres").transform(v => v.trim().toUpperCase()),
       box_count: z.coerce.number().min(1, "Mínimo 1 caja")
     })
   ).min(1, "Agrega al menos una orden"),
@@ -63,8 +74,12 @@ export function SupplierForm() {
   const [capacity, setCapacity] = useState<CapacityCheckResult | null>(null)
   const [matchedRule, setMatchedRule] = useState<SchedulingRule | null>(null)
   const [estimatedDuration, setEstimatedDuration] = useState(0)
+  const [calculationSource, setCalculationSource] = useState<'RULE' | 'VEHICLE_FALLBACK' | 'DEFAULT'>('DEFAULT')
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null)
   const [loadingSlots, setLoadingSlots] = useState(false)
+  
+  // Duplication check
+  const [poWarnings, setPoWarnings] = useState<Record<string, POWarning | null>>({})
 
   const {
     register,
@@ -83,7 +98,9 @@ export function SupplierForm() {
       purchase_orders: [{ po_number: "", box_count: 0 }],
       vehicle_type_id: 0,
       environment_id: 0,
-      category_id: 0
+      category_id: 0,
+      driver_id_card: "",
+      driver_phone: ""
     }
   })
 
@@ -134,10 +151,65 @@ export function SupplierForm() {
       setCapacity(result.capacity)
       setMatchedRule(result.rule)
       setEstimatedDuration(result.durationMinutes)
+      setCalculationSource(result.calculationSource || 'DEFAULT')
       setLoadingSlots(false)
     }
     calculate()
   }, [step, watchDate, watchEnvId, watchVehicleTypeId, watchCategoryId, totalBoxes, setValue])
+
+  // DUPLICATE PO CHECK LOGIC
+  const watchPOs = watch("purchase_orders")
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const posToCheck = watchPOs
+        .map(po => po.po_number?.trim().toUpperCase())
+        .filter(po => po && po.length >= 3 && poWarnings[po] === undefined)
+
+      if (posToCheck.length === 0) return
+
+      async function checkDuplicates() {
+        for (const po of posToCheck) {
+          // Normalización para la búsqueda
+          const { data, count, error } = await supabase
+            .from('appointment_purchase_orders')
+            .select(`
+              po_number,
+              appointment:appointments (
+                company_name,
+                license_plate,
+                scheduled_date,
+                scheduled_time
+              )
+            `, { count: 'exact' })
+            .ilike('po_number', po)
+            .order('created_at', { foreignTable: 'appointments', ascending: false })
+
+          if (data && data.length > 0) {
+            const result = data[0]
+            const appt = result.appointment as any
+            
+            setPoWarnings(prev => ({
+              ...prev,
+              [po]: {
+                count: count || 0,
+                latestAppointment: {
+                  company_name: appt?.company_name || 'N/A',
+                  license_plate: appt?.license_plate || 'N/A',
+                  scheduled_date: appt?.scheduled_date || 'N/A',
+                  scheduled_time: appt?.scheduled_time || 'N/A'
+                }
+              }
+            }))
+          } else {
+            setPoWarnings(prev => ({ ...prev, [po]: null }))
+          }
+        }
+      }
+      checkDuplicates()
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [watchPOs, supabase, poWarnings])
 
   const handleSelectSlot = (slot: AvailableSlot) => {
     setSelectedSlot(slot)
@@ -146,7 +218,7 @@ export function SupplierForm() {
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof AppointmentForm)[] = []
-    if (step === 1) fieldsToValidate = ["company_name", "vehicle_type_id", "environment_id", "category_id", "license_plate", "driver_name", "driver_phone"]
+    if (step === 1) fieldsToValidate = ["company_name", "vehicle_type_id", "environment_id", "category_id", "license_plate", "driver_name", "driver_id_card", "driver_phone"]
     if (step === 2) fieldsToValidate = ["purchase_orders"]
     
     const isValid = await trigger(fieldsToValidate)
@@ -165,6 +237,13 @@ export function SupplierForm() {
     setError(null)
     
     try {
+      // Lowercase transformation for all business data
+      const company_name = data.company_name.toLowerCase()
+      const license_plate = data.license_plate.toLowerCase()
+      const driver_name = data.driver_name.toLowerCase()
+      const driver_id_card = data.driver_id_card.toLowerCase()
+      const driver_phone = data.driver_phone.toLowerCase()
+
       // Calculate end time
       const [h, m] = data.scheduled_time.split(':').map(Number)
       const endMin = h * 60 + m + estimatedDuration
@@ -177,12 +256,13 @@ export function SupplierForm() {
       const { data: newAppointment, error: apptError } = await supabase
         .from('appointments')
         .insert({
-          company_name: data.company_name,
+          company_name,
           vehicle_type: vehicleType?.name || 'Desconocido',
           vehicle_type_id: vehicleType?.id || data.vehicle_type_id,
-          license_plate: data.license_plate,
-          driver_name: data.driver_name,
-          driver_phone: data.driver_phone,
+          license_plate,
+          driver_name,
+          driver_id_card,
+          driver_phone,
           scheduled_date: data.scheduled_date,
           scheduled_time: data.scheduled_time,
           scheduled_end_time: endTimeStr,
@@ -207,7 +287,7 @@ export function SupplierForm() {
 
       const ordersToInsert = data.purchase_orders.map(po => ({
         appointment_id: newAppointment.id,
-        po_number: po.po_number,
+        po_number: po.po_number.toLowerCase(),
         box_count: po.box_count
       }))
 
@@ -241,6 +321,7 @@ export function SupplierForm() {
       purchase_orders: [{ po_number: "", box_count: 0 }],
       scheduled_date: new Date().toISOString().split('T')[0],
       driver_name: "",
+      driver_id_card: "",
       driver_phone: "",
       license_plate: "",
       scheduled_time: ""
@@ -248,7 +329,7 @@ export function SupplierForm() {
   }
 
   if (success && confirmedAppointment) {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`${window?.location?.origin || ""}/checkin?appt=${confirmedAppointment.appointment_number}&plate=${confirmedAppointment.license_plate}`)}`
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`${window?.location?.origin || ""}/checkin?appt=${confirmedAppointment.appointment_number}&plate=${confirmedAppointment.license_plate.toUpperCase()}`)}`
 
     return (
       <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
@@ -296,7 +377,7 @@ export function SupplierForm() {
             {/* Grid de Detalles Operativos */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
               {[
-                { label: 'Vehículo', value: confirmedAppointment.license_plate, icon: 'local_shipping' },
+                { label: 'Vehículo', value: confirmedAppointment.license_plate.toUpperCase(), icon: 'local_shipping' },
                 { label: 'Chofer', value: confirmedAppointment.driver_name, icon: 'person' },
                 { label: 'Fecha', value: confirmedAppointment.scheduled_date, icon: 'calendar_today' },
                 { label: 'Hora Arribo', value: confirmedAppointment.scheduled_time?.substring(0, 5), icon: 'schedule', color: 'text-primary' },
@@ -467,13 +548,22 @@ export function SupplierForm() {
                 error={errors.driver_name?.message}
                 {...register("driver_name")}
               />
-              <Input 
-                label="Teléfono del Conductor" 
-                placeholder="300 000 0000" 
-                icon="phone_iphone"
-                error={errors.driver_phone?.message}
-                {...register("driver_phone")}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <Input 
+                  label="Cédula del Conductor" 
+                  placeholder="Número de identificación" 
+                  icon="badge"
+                  error={errors.driver_id_card?.message}
+                  {...register("driver_id_card")}
+                />
+                <Input 
+                  label="Teléfono del Conductor" 
+                  placeholder="300 000 0000" 
+                  icon="phone_iphone"
+                  error={errors.driver_phone?.message}
+                  {...register("driver_phone")}
+                />
+              </div>
             </div>
           )}
 
@@ -502,6 +592,18 @@ export function SupplierForm() {
                       {...register(`purchase_orders.${index}.box_count` as const)}
                     />
                   </div>
+
+                  {/* Duplicate PO Warning */}
+                  {watchPOs[index]?.po_number && poWarnings[watchPOs[index].po_number.trim().toUpperCase()] && (
+                    <div className="col-span-12 mt-1 mb-2 text-[10px] bg-amber-50 text-amber-800 p-2.5 rounded-xl border border-amber-200/50 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1">
+                      <span className="material-symbols-outlined text-[16px] text-amber-600">info</span>
+                      <p className="leading-relaxed">
+                        <span className="font-bold">Aviso:</span> Hay <span className="font-bold">{poWarnings[watchPOs[index].po_number.trim().toUpperCase()]?.count}</span> cita(s) agendada(s) con esta OC. 
+                        La más reciente por <span className="font-bold uppercase">{poWarnings[watchPOs[index].po_number.trim().toUpperCase()]?.latestAppointment.company_name}</span> con placa <span className="font-bold uppercase">{poWarnings[watchPOs[index].po_number.trim().toUpperCase()]?.latestAppointment.license_plate.toUpperCase()}</span> para el <span className="font-bold">{poWarnings[watchPOs[index].po_number.trim().toUpperCase()]?.latestAppointment.scheduled_date}</span>.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="col-span-2 md:col-span-1 pt-[28px] text-right">
                     {fields.length > 1 && (
                       <Button 
@@ -560,16 +662,32 @@ export function SupplierForm() {
               )}
 
               {/* Engine Result Info */}
-              {matchedRule && (
-                <div className="bg-surface-container-low p-4 rounded-xl flex items-center justify-between">
+              {(matchedRule || estimatedDuration > 0) && (
+                <div className="bg-surface-container-low p-4 rounded-xl flex items-center justify-between border border-surface-container-highest/20 transition-all animate-in slide-in-from-top-2">
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-tertiary">bolt</span>
+                    <div className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center",
+                      calculationSource === 'RULE' ? "bg-tertiary/10 text-tertiary" : "bg-primary/10 text-primary"
+                    )}>
+                      <span className="material-symbols-outlined text-[20px]">
+                        {calculationSource === 'RULE' ? 'bolt' : 'local_shipping'}
+                      </span>
+                    </div>
                     <div>
-                      <p className="text-xs font-bold text-on-surface">Regla: {matchedRule.name}</p>
-                      <p className="text-[10px] text-on-surface-variant/60">Duración estimada del muelle: {estimatedDuration} min ({(estimatedDuration / 60).toFixed(1)}h)</p>
+                      <p className="text-xs font-bold text-on-surface">
+                        {calculationSource === 'RULE' ? `Regla: ${matchedRule?.name}` : 'Cálculo Base de Vehículo'}
+                      </p>
+                      <p className="text-[10px] text-on-surface-variant/60">
+                        {calculationSource === 'RULE' 
+                          ? 'Optimización por reglas de negocio aplicada.'
+                          : 'Basado en tiempos promedio del tipo de vehículo.'}
+                      </p>
                     </div>
                   </div>
-                  <span className="text-lg font-black font-headline text-tertiary">{estimatedDuration} min</span>
+                  <div className="text-right">
+                    <span className="text-lg font-black font-headline text-tertiary block leading-none">{estimatedDuration} min</span>
+                    <span className="text-[9px] font-black uppercase tracking-tighter text-on-surface-variant/40">Duración Est.</span>
+                  </div>
                 </div>
               )}
 

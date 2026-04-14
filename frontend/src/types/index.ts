@@ -90,6 +90,8 @@ export interface Dock {
   id: number;
   name: string;
   is_active: boolean;
+  type: 'DESCARGUE' | 'CARGUE' | 'MIXTO';
+  is_unloading_authorized: boolean;
   description?: string;
   supported_cargo_types?: string[];
   max_vehicle_length_m?: number | null;
@@ -171,6 +173,9 @@ export interface SchedulingRule {
   min_boxes: number;
   max_boxes?: number | null;
   duration_minutes: number;
+  max_duration_minutes?: number | null;
+  is_dynamic: boolean;
+  efficiency_multiplier: number;
   docks_required: number;
   priority: number;
   is_active: boolean;

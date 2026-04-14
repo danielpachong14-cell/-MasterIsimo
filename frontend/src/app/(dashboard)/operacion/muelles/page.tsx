@@ -133,9 +133,17 @@ export default function MuellesPage() {
   }
 
   const fetchData = useCallback(async () => {
+    // 1. Obtener settings
+    // 2. Obtener muelles ACTIVOS y que permitan DESCARGA (o mixtos autorizados)
+    // 3. Obtener citas
     const [sRes, dRes, aRes] = await Promise.all([
       supabase.from('cedi_settings').select('*').single(),
-      supabase.from('docks').select('*').eq('is_active', true).order('priority').order('id'),
+      supabase.from('docks')
+        .select('*')
+        .eq('is_active', true)
+        .or(`type.eq.DESCARGUE,and(type.eq.MIXTO,is_unloading_authorized.eq.true)`)
+        .order('priority')
+        .order('id'),
       supabase.from('appointments').select(`*, appointment_purchase_orders(*)`).eq('scheduled_date', date).neq('status', 'CANCELADO').order('scheduled_time')
     ])
 

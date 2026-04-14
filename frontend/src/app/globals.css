@@ -140,6 +140,13 @@ h1, h2, h3, h4, h5, h6 {
   animation: kinetic-pulse 2s ease-in-out infinite;
 }
 
+/* ── Dot Grid Background ── */
+.bg-dot-grid {
+  background-color: var(--color-surface);
+  background-image: radial-gradient(var(--color-outline-variant) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
 @keyframes accordion-down {
   from { height: 0; }
   to { height: var(--radix-accordion-content-height); }

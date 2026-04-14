@@ -2,19 +2,21 @@ import { cn } from "@/lib/utils"
 import * as React from "react"
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'error'
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'error' | 'outline'
   size?: 'sm' | 'md' | 'lg' | 'xl'
   isLoading?: boolean
+  asChild?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', isLoading, children, ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'md', isLoading, asChild = false, children, ...props }, ref) => {
     const variants = {
       primary: "bg-kinetic-gradient text-on-primary shadow-elevated hover:opacity-90 active:scale-[0.98]",
       secondary: "bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed active:scale-[0.98]",
       tertiary: "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest",
       ghost: "bg-transparent text-primary hover:bg-primary-fixed/30",
-      error: "bg-error text-on-error shadow-sm hover:bg-error/90"
+      error: "bg-error text-on-error shadow-sm hover:bg-error/90",
+      outline: "bg-white border border-outline-variant/50 text-on-surface-variant hover:bg-surface-container-low active:scale-[0.98]"
     }
 
     const sizes = {
@@ -24,15 +26,24 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       xl: "h-16 px-10 text-lg font-bold rounded-xl"
     }
 
+    const baseClasses = cn(
+      "inline-flex items-center justify-center transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+      variants[variant],
+      sizes[size],
+      className
+    )
+
+    if (asChild && React.isValidElement(children)) {
+      return React.cloneElement(children as React.ReactElement<any>, {
+        className: cn(baseClasses, (children as React.ReactElement<any>).props.className),
+        ...props,
+      })
+    }
+
     return (
       <button
         ref={ref}
-        className={cn(
-          "inline-flex items-center justify-center transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-          variants[variant],
-          sizes[size],
-          className
-        )}
+        className={baseClasses}
         disabled={isLoading || props.disabled}
         {...props}
       >

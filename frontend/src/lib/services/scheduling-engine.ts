@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
-import { parseTime, formatTimeFromMinutes } from "./scheduling"
+import { parseTime, formatTimeFromMinutes, calculateDuration } from "./scheduling"
 import type {
   CapacityCheckResult,
   AvailableSlot,
@@ -104,7 +104,7 @@ export async function resolveSchedulingRule(
     .eq("is_active", true)
     .eq("environment_id", environmentId)
     .lte("min_boxes", totalBoxes)
-    .order("priority", { ascending: true })
+    .order("priority", { ascending: false })
 
   if (!rules || rules.length === 0) return null
 
@@ -164,15 +164,22 @@ export async function findAvailableSlots(
     return []
   }
 
-  // Filtrar muelles por ambiente
+  // Filtrar muelles por ambiente y disponibilidad operativa para DESCARGA
   const compatibleDocks = (allDocks as unknown as Dock[]).filter((dock) => {
-    // Si el muelle no tiene ambiente asignado, es universal
-    if (!dock.environment_id) return true
-    // Match de ambiente
-    if (dock.environment_id !== environmentId) return false
-    // Verificar vehículo soportado (si está configurado)
+    // 1. Validar que el muelle permita descargar mercancía basado en su tipo
+    if (dock.type === 'CARGUE') return false; // Bloqueado para descarga
+    if (dock.type === 'MIXTO' && !dock.is_unloading_authorized) return false; // Mixto requiere autorización explícita
+
+    // 2. Si el muelle no tiene ambiente asignado (fallback), es universal
+    if (!dock.environment_id) return true;
+    
+    // 3. Match de ambiente
+    if (dock.environment_id !== environmentId) return false;
+    
+    // 4. Verificar vehículo soportado (si el muelle tiene restricciones configuradas)
     const svt = dock.supported_vehicle_types || []
-    if (svt.length > 0 && vehicleTypeId && !svt.includes(vehicleTypeId)) return false
+    if (svt.length > 0 && vehicleTypeId && !svt.includes(vehicleTypeId)) return false;
+    
     return true
   })
 
@@ -267,6 +274,7 @@ export interface SchedulingResult {
   rule: SchedulingRule | null
   durationMinutes: number
   slots: AvailableSlot[]
+  calculationSource?: 'RULE' | 'VEHICLE_FALLBACK' | 'DEFAULT'
 }
 
 /**
@@ -276,6 +284,7 @@ export interface SchedulingResult {
 export async function runSchedulingEngine(
   request: SchedulingRequest
 ): Promise<SchedulingResult> {
+  const supabase = createClient()
   // Paso 1: Capacidad
   const capacity = await checkDailyCapacity(
     request.date,
@@ -283,15 +292,76 @@ export async function runSchedulingEngine(
     request.totalBoxes
   )
 
-  // Paso 2: Regla de duración
   const rule = await resolveSchedulingRule(
     request.environmentId,
     request.vehicleTypeId,
     request.categoryId,
     request.totalBoxes
   )
+  
+  let durationMinutes = 60 // Fallback base
+  let calculationSource: 'RULE' | 'VEHICLE_FALLBACK' | 'DEFAULT' = 'DEFAULT'
 
-  const durationMinutes = rule?.duration_minutes || 60 // Fallback: 1h
+  if (rule) {
+    if (rule.is_dynamic) {
+      if (rule.max_duration_minutes && rule.max_boxes && rule.max_boxes > rule.min_boxes) {
+        // --- NUEVA LÓGICA: Interpolación Lineal (LERP) por Rango ---
+        const deltaBoxes = rule.max_boxes - rule.min_boxes
+        const deltaTime = rule.max_duration_minutes - rule.duration_minutes
+        const extraBoxes = Math.max(0, request.totalBoxes - rule.min_boxes)
+        
+        const interpolatedExtra = (extraBoxes * deltaTime) / deltaBoxes
+        durationMinutes = Math.ceil(rule.duration_minutes + interpolatedExtra)
+        calculationSource = 'RULE'
+      } else if (request.vehicleTypeId) {
+        // --- LOGICA EXISTENTE: Cálculo por eficiencia de vehículo + multiplicador ---
+        const { data: vehicle } = await supabase
+          .from("vehicle_types")
+          .select("*")
+          .eq("id", request.vehicleTypeId)
+          .single()
+        
+        if (vehicle) {
+          const { realMinutes } = calculateDuration(
+            request.totalBoxes,
+            vehicle.base_boxes,
+            vehicle.base_time_minutes * (rule.efficiency_multiplier || 1),
+            vehicle.maneuver_time_minutes
+          )
+          durationMinutes = realMinutes
+          calculationSource = 'RULE'
+        } else {
+          durationMinutes = rule.duration_minutes
+          calculationSource = 'RULE'
+        }
+      } else {
+        durationMinutes = rule.duration_minutes
+        calculationSource = 'RULE'
+      }
+    } else {
+      // Tiempo fijo de la regla
+      durationMinutes = rule.duration_minutes
+      calculationSource = 'RULE'
+    }
+  } else if (request.vehicleTypeId) {
+    // Fallback: Si no hay regla, usar cálculo estándar del vehículo
+    const { data: vehicle } = await supabase
+      .from("vehicle_types")
+      .select("*")
+      .eq("id", request.vehicleTypeId)
+      .single()
+
+    if (vehicle) {
+      const { realMinutes } = calculateDuration(
+        request.totalBoxes,
+        vehicle.base_boxes,
+        vehicle.base_time_minutes,
+        vehicle.maneuver_time_minutes
+      )
+      durationMinutes = realMinutes
+      calculationSource = 'VEHICLE_FALLBACK'
+    }
+  }
 
   // Paso 3: Slots disponibles
   const slots = await findAvailableSlots(
@@ -301,5 +371,5 @@ export async function runSchedulingEngine(
     request.vehicleTypeId
   )
 
-  return { capacity, rule, durationMinutes, slots }
+  return { capacity, rule, durationMinutes, slots, calculationSource }
 }

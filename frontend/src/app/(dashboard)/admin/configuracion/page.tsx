@@ -15,6 +15,32 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { cn } from "@/lib/utils"
 
+const LOGISTICS_ICONS = [
+  // LOGÍSTICA
+  'warehouse', 'inventory_2', 'pallet', 'forklift', 
+  'local_shipping', 'shelves', 'conveyor_belt', 'trolley', 
+  'package_2', 'barcode_scanner', 'factory', 'delivery_dining',
+  // TEMPERATURA / AMBIENTE
+  'ac_unit', 'hvac', 'water_drop', 'thermostat', 'kitchen', 
+  'severe_cold', 'cyclone', 'science',
+  // HARD DISCOUNT / COMIDA
+  'grocery', 'nutrition', 'bakery_dining', 'egg', 
+  'set_meal', 'cookie', 'coffee', 'local_drink', 
+  'liquor', 'wine_bar', 'icecream', 'lunch_dining',
+  'restaurant', 'flatware', 'outdoor_grill', 'cleaning_services',
+  'soap', 'sanitizer', 'stroller', 'emoji_objects'
+];
+
+const PRIORITY_LEVELS = [
+  { value: 1, label: 'Nivel 1: Mínima (Base)', color: 'text-slate-500 bg-slate-50' },
+  { value: 2, label: 'Nivel 2: Baja', color: 'text-blue-500 bg-blue-50' },
+  { value: 3, label: 'Nivel 3: Regular', color: 'text-cyan-500 bg-cyan-50' },
+  { value: 4, label: 'Nivel 4: Normal', color: 'text-green-500 bg-green-50' },
+  { value: 5, label: 'Nivel 5: Elevada', color: 'text-amber-500 bg-amber-50' },
+  { value: 6, label: 'Nivel 6: Urgente', color: 'text-orange-500 bg-orange-50' },
+  { value: 7, label: 'Nivel 7: Crítica (Máxima)', color: 'text-rose-500 bg-rose-50' },
+];
+
 export default function ConfiguracionPage() {
   // --- ESTADO DE DATOS ---
   const [environments, setEnvironments] = useState<Environment[]>([])
@@ -79,8 +105,16 @@ export default function ConfiguracionPage() {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { environment, vehicle_type, category, created_at, updated_at, ...cleanPayload } = data
       
-      // 2. Manejo de ID y campos por defecto
+      // 2. Manejo de ID y campos por defecto y estandarización a minúsculas
       const payload = { ...cleanPayload }
+      
+      // Transformar todos los strings a minúsculas
+      Object.keys(payload).forEach(key => {
+        if (typeof payload[key] === 'string') {
+          payload[key] = payload[key].toLowerCase()
+        }
+      })
+
       if (!payload.id) {
         delete payload.id // Asegurar que sea autoincremental si no existe
         if (table !== 'scheduling_rules') { // La mayoría de tablas maestras usan is_active
@@ -246,6 +280,7 @@ export default function ConfiguracionPage() {
                   <tr>
                     <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Nombre</th>
                     <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
+                    <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Tipo / Estado</th>
                     <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -261,6 +296,32 @@ export default function ConfiguracionPage() {
                         )}>
                           {dock.environment?.display_name || 'Sin Asignar'}
                         </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="flex flex-col gap-1">
+                          <span className={cn(
+                            "text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 rounded w-fit",
+                            dock.type === 'DESCARGUE' ? "bg-green-100 text-green-700" :
+                            dock.type === 'CARGUE' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                          )}>
+                            {dock.type}
+                          </span>
+                          {dock.type === 'MIXTO' ? (
+                            <span className={cn(
+                              "text-[8px] font-bold px-1.5 py-0.5 rounded w-fit",
+                              dock.is_unloading_authorized ? "bg-success/10 text-success" : "bg-error/10 text-error"
+                            )}>
+                              {dock.is_unloading_authorized ? 'AUTORIZADO DESCARGA' : 'SOLO CARGUE'}
+                            </span>
+                          ) : dock.type === 'CARGUE' ? (
+                            <span className="text-[8px] font-bold text-amber-600/60 italic tracking-tight">Bloqueado para Citas</span>
+                          ) : null}
+                          {!dock.is_active && (
+                            <span className="text-[8px] font-black bg-surface-container-highest text-on-surface-variant px-1.5 py-0.5 rounded w-fit">
+                              INACTIVO
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -468,6 +529,7 @@ export default function ConfiguracionPage() {
                   <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Nombre</th>
                   <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
                   <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Vehículo</th>
+                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Categoría</th>
                   <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Rango Cajas</th>
                   <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Duración</th>
                   <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right"></th>
@@ -476,15 +538,39 @@ export default function ConfiguracionPage() {
               <tbody className="divide-y divide-outline-variant/10">
                 {rules.map(rule => (
                   <tr key={rule.id} className="hover:bg-surface-container-lowest transition-colors group">
-                    <td className="px-6 py-4"><span className="w-6 h-6 rounded-full bg-surface-container-high flex items-center justify-center text-[10px] font-black">{rule.priority}</span></td>
+                    <td className="px-6 py-4">
+                      {(() => {
+                        const p = PRIORITY_LEVELS.find(l => l.value === rule.priority);
+                        return (
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-lg text-[9px] font-black border tracking-tight block w-fit whitespace-nowrap",
+                            p?.color || "text-on-surface-variant bg-surface-container"
+                          )}>
+                            {p?.label.split(':')[1]?.trim().toUpperCase() || `P${rule.priority}`}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-6 py-4 font-bold text-sm text-on-surface">{rule.name}</td>
                     <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{rule.environment?.display_name || 'Todos'}</td>
                     <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{rule.vehicle_type?.name || 'Todos'}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{rule.category?.display_name || 'Todas'}</td>
                     <td className="px-6 py-4 font-mono font-bold text-xs">{rule.min_boxes} — {rule.max_boxes || '∞'}</td>
                     <td className="px-6 py-4">
-                      <span className="bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-lg text-xs font-black">
-                        {rule.duration_minutes} min
-                      </span>
+                      <div className="flex flex-col gap-1">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-lg text-[10px] font-black border w-fit",
+                            rule.is_dynamic ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-green-50 text-green-700 border-green-200"
+                          )}>
+                            {rule.is_dynamic 
+                              ? (rule.max_duration_minutes ? `${rule.duration_minutes} — ${rule.max_duration_minutes} min` : 'DINÁMICO')
+                              : `${rule.duration_minutes} min`
+                            }
+                          </span>
+                          {rule.is_dynamic && !rule.max_duration_minutes && rule.efficiency_multiplier !== 1 && (
+                            <span className="text-[9px] font-bold text-purple-400 italic">Factor: {rule.efficiency_multiplier}x</span>
+                          )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -589,6 +675,72 @@ export default function ConfiguracionPage() {
                   {environments.map(e => <option key={e.id} value={e.id}>{e.display_name}</option>)}
                 </select>
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-on-surface-variant">Tipo de Muelle</label>
+                  <select 
+                    className="w-full bg-surface-container rounded-xl px-4 h-12 text-sm font-bold border-0"
+                    value={editingItem.type || 'DESCARGUE'}
+                    onChange={e => {
+                      const newType = e.target.value;
+                      setEditingItem({
+                        ...editingItem, 
+                        type: newType,
+                        // Mejora: Si se configura en CARGUE, se desactiva automáticamente para agendamiento (descarga)
+                        // y se marca como inactivo (escondido) de las vistas de descargue
+                        is_active: newType === 'CARGUE' ? false : editingItem.is_active,
+                        is_unloading_authorized: newType === 'CARGUE' ? false : editingItem.is_unloading_authorized
+                      });
+                    }}
+                    required
+                  >
+                    <option value="DESCARGUE">Descargue</option>
+                    <option value="CARGUE">Cargue</option>
+                    <option value="MIXTO">Mixto</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-on-surface-variant">Estado</label>
+                  <select 
+                    className={cn(
+                      "w-full bg-surface-container rounded-xl px-4 h-12 text-sm font-bold border-0 transition-opacity",
+                      editingItem.type === 'CARGUE' && "opacity-50 cursor-not-allowed"
+                    )}
+                    value={editingItem.is_active !== undefined ? String(editingItem.is_active) : 'true'}
+                    onChange={e => setEditingItem({...editingItem, is_active: e.target.value === 'true'})}
+                    disabled={editingItem.type === 'CARGUE'}
+                  >
+                    <option value="true">Habilitado</option>
+                    <option value="false">Deshabilitado</option>
+                  </select>
+                  {editingItem.type === 'CARGUE' && (
+                    <p className="text-[9px] font-bold text-amber-600 px-1">Bloqueado: Muelles de Cargue no son visibles para Descarga</p>
+                  )}
+                </div>
+              </div>
+
+              {editingItem.type === 'MIXTO' && (
+                <div className="flex items-center justify-between p-4 bg-purple-50 rounded-2xl border border-purple-100 animate-in fade-in slide-in-from-top-2">
+                  <div>
+                    <p className="text-xs font-black text-purple-900">Autorización de Descarga</p>
+                    <p className="text-[10px] text-purple-700">Permitir agendar citas de descarga en este muelle.</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setEditingItem({...editingItem, is_unloading_authorized: !editingItem.is_unloading_authorized})}
+                    className={cn(
+                      "w-12 h-6 rounded-full transition-colors relative",
+                      editingItem.is_unloading_authorized ? "bg-purple-600" : "bg-outline-variant"
+                    )}
+                  >
+                    <div className={cn(
+                      "absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform",
+                      editingItem.is_unloading_authorized ? "translate-x-6" : "translate-x-0"
+                    )} />
+                  </button>
+                </div>
+              )}
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-on-surface-variant">Descripción (Opcional)</label>
                 <Input value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})} placeholder="Detalles de ubicación o tipo..." />
@@ -646,8 +798,23 @@ export default function ConfiguracionPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-on-surface-variant">Prioridad</label>
-                <Input type="number" value={editingItem.priority ?? ''} onChange={e => setEditingItem({...editingItem, priority: Number(e.target.value)})} />
+                <label className="text-[10px] font-black uppercase text-on-surface-variant">Categoría Producto</label>
+                <select className="w-full bg-surface-container rounded-xl px-4 py-2.5 text-sm font-bold border-0" value={editingItem.category_id || ''} onChange={e => setEditingItem({...editingItem, category_id: Number(e.target.value) || null})}>
+                  <option value="">Cualquier Categoría</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.display_name}</option>)}
+                </select>
+              </div>
+               <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant">Prioridad de Aplicación</label>
+                <select 
+                  className="w-full bg-surface-container rounded-xl px-4 py-2.5 text-sm font-bold border-0" 
+                  value={editingItem.priority ?? 1} 
+                  onChange={e => setEditingItem({...editingItem, priority: Number(e.target.value)})}
+                >
+                  {PRIORITY_LEVELS.slice().reverse().map(level => (
+                    <option key={level.value} value={level.value}>{level.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
@@ -659,9 +826,117 @@ export default function ConfiguracionPage() {
                   <Input type="number" value={editingItem.max_boxes ?? ''} onChange={e => setEditingItem({...editingItem, max_boxes: Number(e.target.value)})} />
                 </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-on-surface-variant">Duración Estimada (Minutos)</label>
-                <Input type="number" className="text-green-600 font-black text-xl" value={editingItem.duration_minutes ?? ''} onChange={e => setEditingItem({...editingItem, duration_minutes: Number(e.target.value)})} required />
+              <div className="space-y-4 md:col-span-2 bg-surface-container-low p-4 rounded-2xl border border-outline-variant/10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-black font-headline">Tipo de Duración</label>
+                    <p className="text-[10px] text-on-surface-variant">¿Tiempo fijo o calculado por eficiencia del vehículo?</p>
+                  </div>
+                  <div className="flex bg-surface-container rounded-xl p-1 gap-1">
+                    <button 
+                      type="button"
+                      onClick={() => setEditingItem({...editingItem, is_dynamic: false})}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-[10px] font-black transition-all",
+                        !editingItem.is_dynamic ? "bg-white text-primary shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"
+                      )}
+                    >
+                      TIEMPO FIJO
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setEditingItem({...editingItem, is_dynamic: true, efficiency_multiplier: editingItem.efficiency_multiplier || 1.0})}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-[10px] font-black transition-all",
+                        editingItem.is_dynamic ? "bg-white text-purple-700 shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high"
+                      )}
+                    >
+                      CALCULADO
+                    </button>
+                  </div>
+                </div>
+
+                {editingItem.is_dynamic ? (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-on-surface-variant text-primary">Tiempo p/ Mín Cajas ({editingItem.min_boxes || 0})</label>
+                        <Input 
+                          type="number" 
+                          className="text-primary font-black text-xl" 
+                          value={editingItem.duration_minutes ?? ''} 
+                          onChange={e => setEditingItem({...editingItem, duration_minutes: Number(e.target.value)})} 
+                          required 
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-on-surface-variant text-rose-600">Tiempo p/ Máx Cajas ({editingItem.max_boxes || '∞'})</label>
+                        <Input 
+                          type="number" 
+                          className="text-rose-600 font-black text-xl" 
+                          value={editingItem.max_duration_minutes ?? ''} 
+                          onChange={e => setEditingItem({...editingItem, max_duration_minutes: Number(e.target.value)})} 
+                          placeholder="Opcional"
+                        />
+                      </div>
+                    </div>
+
+                    {!editingItem.max_duration_minutes ? (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-on-surface-variant">Multiplicador de Eficiencia (Fallback)</label>
+                        <div className="flex items-center gap-3">
+                          <Input 
+                            type="number" 
+                            step="0.1"
+                            className="text-purple-700 font-black text-lg" 
+                            value={editingItem.efficiency_multiplier ?? 1.0} 
+                            onChange={e => setEditingItem({...editingItem, efficiency_multiplier: Number(e.target.value)})} 
+                            required 
+                          />
+                          <div className="flex-1 bg-purple-50 p-2 rounded-xl border border-purple-100">
+                            <p className="text-[9px] text-purple-700 leading-tight">
+                              Usa la base del vehículo escalada por {editingItem.efficiency_multiplier || 1}x.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-surface-container rounded-2xl p-4 border border-outline-variant/20">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-black uppercase text-on-surface-variant">Previsualización del Cálculo (LERP)</span>
+                          <span className="px-2 py-0.5 bg-rose-500 text-white rounded text-[8px] font-black">ACTIVO</span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[0.25, 0.5, 0.75].map(ratio => {
+                            const boxes = Math.round((editingItem.min_boxes || 0) + ((editingItem.max_boxes || 0) - (editingItem.min_boxes || 0)) * ratio);
+                            const time = Math.ceil((editingItem.duration_minutes || 0) + ((editingItem.max_duration_minutes || 0) - (editingItem.duration_minutes || 0)) * ratio);
+                            return (
+                              <div key={ratio} className="bg-white p-2 rounded-lg shadow-sm border border-outline-variant/10 text-center">
+                                <p className="text-[10px] font-black text-on-surface">{boxes} Cajas</p>
+                                <p className="text-xl font-black text-rose-600 leading-none my-1">{time}</p>
+                                <p className="text-[8px] font-bold text-on-surface-variant uppercase">Minutos</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="mt-3 text-[9px] text-on-surface-variant italic leading-tight">
+                          * El sistema calculará el tiempo exacto proporcional a la cantidad de cajas dentro de este rango.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <label className="text-[10px] font-black uppercase text-on-surface-variant">Duración Estimada (Minutos)</label>
+                    <Input 
+                      type="number" 
+                      className="text-green-600 font-black text-xl" 
+                      value={editingItem.duration_minutes ?? ''} 
+                      onChange={e => setEditingItem({...editingItem, duration_minutes: Number(e.target.value)})} 
+                      required 
+                    />
+                  </div>
+                )}
               </div>
               <div className="md:col-span-2 flex gap-4 pt-4">
                 <Button type="button" variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>Cancelar</Button>
@@ -714,9 +989,30 @@ export default function ConfiguracionPage() {
                 <label className="text-[10px] font-black uppercase text-on-surface-variant">Nombre de Muestra</label>
                 <Input value={editingItem.display_name || ''} onChange={e => setEditingItem({...editingItem, display_name: e.target.value, name: e.target.value.toLowerCase().replace(/\s+/g, '_')})} placeholder="Ej: Secos, Fríos..." required />
               </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-on-surface-variant">Icono (Material Symbol)</label>
-                <Input value={editingItem.icon || ''} onChange={e => setEditingItem({...editingItem, icon: e.target.value})} placeholder="warehouse, hvac, water_drop..." />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-on-surface-variant">Icono Visual</label>
+                <div className="grid grid-cols-6 gap-2 bg-surface-container-low p-3 rounded-xl max-h-[160px] overflow-y-auto border border-outline-variant/10">
+                  {LOGISTICS_ICONS.map(icon => (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => setEditingItem({ ...editingItem, icon })}
+                      className={cn(
+                        "w-10 h-10 rounded-lg flex items-center justify-center transition-all hover:scale-110",
+                        editingItem.icon === icon 
+                          ? "bg-primary text-white shadow-lg scale-110 z-10" 
+                          : "bg-white text-on-surface-variant hover:bg-primary/10 hover:text-primary"
+                      )}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">{icon}</span>
+                    </button>
+                  ))}
+                </div>
+                {editingItem.icon && (
+                  <p className="text-[9px] font-bold text-center text-primary uppercase pt-1">
+                    Seleccionado: {editingItem.icon}
+                  </p>
+                )}
               </div>
               <div className="flex gap-4 pt-4">
                 <Button type="button" variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>Cancelar</Button>
