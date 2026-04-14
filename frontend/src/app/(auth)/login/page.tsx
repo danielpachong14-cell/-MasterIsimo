@@ -20,6 +20,7 @@ type LoginForm = z.infer<typeof loginSchema>
 export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -104,14 +105,26 @@ export default function LoginPage() {
               {...register("email")}
             />
             <div className="space-y-1">
-              <Input
-                label="Contraseña"
-                type="password"
-                placeholder="••••••••"
-                icon="lock"
-                error={errors.password?.message}
-                {...register("password")}
-              />
+              <div className="relative group/pass">
+                <Input
+                  label="Contraseña"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  icon="lock"
+                  error={errors.password?.message}
+                  className="pr-12"
+                  {...register("password")}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 bottom-3.5 text-on-surface-variant/40 hover:text-primary transition-colors focus:outline-none z-10"
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {showPassword ? "visibility_off" : "visibility"}
+                  </span>
+                </button>
+              </div>
               <div className="flex justify-end px-1">
                 <Link 
                   href="/recuperar" 
