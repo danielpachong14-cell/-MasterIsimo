@@ -184,7 +184,7 @@ export function EditAppointmentModal({
                 onChange={e => setFormData({...formData, status: e.target.value as AppointmentStatus})}
               >
                 <option value="PENDIENTE">PENDIENTE</option>
-                <option value="EN_PATIO">EN PATIO</option>
+                <option value="EN_PORTERIA">EN PORTERÍA</option>
                 <option value="EN_MUELLE">EN MUELLE</option>
                 <option value="DESCARGANDO">DESCARGANDO</option>
                 <option value="FINALIZADO">FINALIZADO</option>

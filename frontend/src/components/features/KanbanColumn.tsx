@@ -10,9 +10,10 @@ interface KanbanColumnProps {
   id: AppointmentStatus
   title: string
   appointments: Appointment[]
+  onCardClick?: (appointment: Appointment) => void
 }
 
-export function KanbanColumn({ id, title, appointments }: KanbanColumnProps) {
+export function KanbanColumn({ id, title, appointments, onCardClick }: KanbanColumnProps) {
   const { setNodeRef } = useDroppable({ id })
 
   return (
@@ -23,7 +24,7 @@ export function KanbanColumn({ id, title, appointments }: KanbanColumnProps) {
           <div className={cn(
             "w-2.5 h-2.5 rounded-full",
             id === 'PENDIENTE' && "bg-surface-container-highest",
-            id === 'EN_PATIO' && "bg-secondary-fixed-dim",
+            id === 'EN_PORTERIA' && "bg-secondary-fixed-dim",
             id === 'EN_MUELLE' && "bg-tertiary-fixed",
             id === 'DESCARGANDO' && "bg-tertiary",
             id === 'FINALIZADO' && "bg-primary",
@@ -48,7 +49,7 @@ export function KanbanColumn({ id, title, appointments }: KanbanColumnProps) {
           strategy={verticalListSortingStrategy}
         >
           {appointments.map((appointment) => (
-            <KanbanCard key={appointment.id} appointment={appointment} />
+            <KanbanCard key={appointment.id} appointment={appointment} onClick={onCardClick} />
           ))}
           
           {appointments.length === 0 && (

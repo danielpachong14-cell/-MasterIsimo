@@ -203,7 +203,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                 <div className="grid grid-cols-2 gap-y-4 gap-x-6">
                   <div>
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase">Chofer</p>
-                    <p className="font-bold text-sm text-on-surface">{appointment.driver_name}</p>
+                    <p className="font-bold text-sm text-on-surface capitalize">{appointment.driver_name}</p>
                     <p className="text-xs text-on-surface-variant">{appointment.driver_phone}</p>
                   </div>
                   <div>

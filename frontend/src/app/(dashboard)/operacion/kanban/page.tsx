@@ -5,10 +5,12 @@ import { KanbanBoard } from "@/components/features/KanbanBoard"
 import { Card } from "@/components/ui/Card"
 import { createClient } from "@/lib/supabase/client"
 import { Appointment, Dock, AppointmentStatus } from "@/types"
+import { AppointmentDetailsModal } from "../trazabilidad/components/AppointmentDetailsModal"
 
 export default function KanbanPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [docks, setDocks] = useState<Dock[]>([])
+  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null)
   const supabase = createClient()
 
   // Centralized data fetching handling all uncompleted operations
@@ -127,7 +129,18 @@ export default function KanbanPage() {
       </div>
 
       {/* Kanban Board Area */}
-      <KanbanBoard appointments={appointments} onStatusChange={updateAppointmentStatus} />
+      <KanbanBoard 
+        appointments={appointments} 
+        onStatusChange={updateAppointmentStatus} 
+        onCardClick={(appt) => setSelectedAppt(appt)}
+      />
+
+      <AppointmentDetailsModal 
+        isOpen={!!selectedAppt}
+        onClose={() => setSelectedAppt(null)}
+        appointment={selectedAppt}
+        onSuccess={fetchData}
+      />
     </div>
   )
 }

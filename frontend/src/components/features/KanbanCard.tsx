@@ -8,9 +8,10 @@ import { cn, formatTime } from "@/lib/utils"
 
 interface KanbanCardProps {
   appointment: Appointment
+  onClick?: (appointment: Appointment) => void
 }
 
-export function KanbanCard({ appointment }: KanbanCardProps) {
+export function KanbanCard({ appointment, onClick }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -47,6 +48,7 @@ export function KanbanCard({ appointment }: KanbanCardProps) {
       style={style}
       {...attributes}
       {...listeners}
+      onClick={() => onClick?.(appointment)}
       className="group"
     >
       <Card
@@ -102,7 +104,7 @@ export function KanbanCard({ appointment }: KanbanCardProps) {
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-surface-container pl-2">
-          <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase truncate max-w-[100px]" title={appointment.driver_name}>
+          <p className="text-[10px] font-bold text-on-surface-variant/60 capitalize truncate max-w-[100px]" title={appointment.driver_name}>
             {appointment.driver_name}
           </p>
           {appointment.dock_id ? (

@@ -5,11 +5,8 @@ import { NextResponse, type NextRequest } from 'next/server'
  * Actualiza la sesión del usuario y gestiona el control de acceso basado en roles (RBAC).
  * Este middleware se encarga de:
  * 1. Refrescar el token de sesión de Supabase.
- * 2. Identificar al usuario y su rol desde el perfil.
- * 3. Proteger rutas privadas y redirigir según permisos.
- * 
- * @param request - El objeto de la petición Next.js.
- * @returns Una respuesta de redirección o la continuación de la petición.
+ * 2. Identificar al usuario y proteger rutas.
+ * 3. Gestionar redirecciones sincronizando cookies para evitar pérdida de sesión.
  */
 export async function updateSession(request: NextRequest) {
   // Respuesta base por defecto
@@ -23,7 +20,6 @@ export async function updateSession(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Validación crítica de entorno para evitar pánico en Edge Runtime
     if (!supabaseUrl || !supabaseKey) {
       console.error('Middleware: Variables de entorno de Supabase no configuradas.');
       return response;
@@ -75,65 +71,54 @@ export async function updateSession(request: NextRequest) {
       }
     )
 
-    let user = null
-    let userRole: string | null = null
-    
-    // Obtener información del usuario con manejo seguro de excepciones
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError) {
-      // Si hay error de sesión, simplemente tratamos al usuario como no autenticado
-      user = null;
-    } else {
-      user = authUser;
-    }
-    
-    if (user) {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role_id')
-        .eq('id', user.id)
-        .single()
-        
-      if (profile) {
-        userRole = profile.role_id === 1 ? 'SuperAdmin' : 
-                   profile.role_id === 2 ? 'Coordinador' : null
-      }
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2. OBTENER / REFRESCAR USUARIO
+    // ─────────────────────────────────────────────────────────────────────────
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    const publicRoutes = ['/proveedores', '/login', '/registro', '/p']
-    const pathname = request.nextUrl.pathname;
-    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3. REGLAS DE ACCESO (PROTECCIÓN DE RUTAS)
+    // ─────────────────────────────────────────────────────────────────────────
+    const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
+    const isPublicRoute = request.nextUrl.pathname.startsWith('/p/') // p/check-in, etc.
+    const isNextInternal = request.nextUrl.pathname.startsWith('/_next') || request.nextUrl.pathname.includes('.')
 
-    // Lógica de redirección segura
-    if (!user && !isPublicRoute) {
+    // Ignorar archivos estáticos y rutas internas de Next
+    if (isNextInternal) return response
+
+    // Caso A: No hay usuario y la ruta es privada
+    if (!user && !isAuthRoute && !isPublicRoute && request.nextUrl.pathname !== '/') {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
-
-    const isNextInternal = pathname.startsWith('/_next') || pathname.includes('.')
-    const isRootPath = pathname === '/'
-    
-    if (user && !isPublicRoute && !isNextInternal && !isRootPath) {
-      // Importación dinámica segura
-      const menuModule = await import('@/config/menu');
-      const isAllowed = menuModule.isRouteAllowed(pathname, userRole);
+      const redirectResponse = NextResponse.redirect(url)
       
-      if (!isAllowed) {
-        const url = request.nextUrl.clone()
-        url.pathname = '/login' 
-        return NextResponse.redirect(url)
-      }
+      // Sincronizar cookies de Supabase al objeto de redirección
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value)
+      })
+      
+      return redirectResponse
     }
 
-  } catch (error) {
-    // Si algo falla catastróficamente, permitimos que la petición continúe (Failsafe)
-    // para no bloquear el acceso total al sitio.
-    console.error('Middleware: Error Fatal en updateSession:', error)
+    // Caso B: Hay usuario e intenta ir a login o raíz (si no tiene dashboard raíz)
+    if (user && isAuthRoute) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/operacion/kanban'
+      const redirectResponse = NextResponse.redirect(url)
+      
+      // Sincronizar cookies
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value)
+      })
+      
+      return redirectResponse
+    }
+
+    return response
+  } catch (e) {
+    console.error('Middleware Error:', e)
+    return response
   }
-
-  return response
 }
-
-

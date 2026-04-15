@@ -30,9 +30,10 @@ const COLUMNS: { id: AppointmentStatus; title: string }[] = [
 interface KanbanBoardProps {
   appointments: Appointment[];
   onStatusChange: (id: string, newStatus: AppointmentStatus) => Promise<void>;
+  onCardClick?: (appointment: Appointment) => void;
 }
 
-export function KanbanBoard({ appointments, onStatusChange }: KanbanBoardProps) {
+export function KanbanBoard({ appointments, onStatusChange, onCardClick }: KanbanBoardProps) {
   const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null)
 
   // Sensors
@@ -105,6 +106,7 @@ export function KanbanBoard({ appointments, onStatusChange }: KanbanBoardProps) 
             id={column.id}
             title={column.title}
             appointments={appointments.filter((a) => a.status === column.id)}
+            onCardClick={onCardClick}
           />
         ))}
 

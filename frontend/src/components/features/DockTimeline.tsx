@@ -79,7 +79,7 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDIENTE': return 'bg-surface-container-highest/80 border-on-surface-variant/20 text-on-surface-variant'
-      case 'EN_PATIO': return 'bg-secondary-fixed/80 border-secondary/30 text-on-secondary-fixed-variant'
+      case 'EN_PORTERIA': return 'bg-secondary-fixed/80 border-secondary/30 text-on-secondary-fixed-variant'
       case 'EN_MUELLE': return 'bg-tertiary-fixed/60 border-tertiary/30 text-on-tertiary-fixed-variant'
       case 'DESCARGANDO': return 'bg-tertiary-fixed border-tertiary/40 text-on-tertiary-fixed-variant'
       case 'FINALIZADO': return 'bg-primary-fixed/80 border-primary/20 text-on-primary-fixed-variant'

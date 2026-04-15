@@ -40,6 +40,11 @@ export default function TrazabilidadPage() {
   const [deleteAppt, setDeleteAppt] = useState<Appointment | null>(null)
   const [detailsAppt, setDetailsAppt] = useState<Appointment | null>(null)
 
+  // Frontend Multi-Column Sequential Sorting
+  type SortColumn = 'id' | 'empresa' | 'logistica' | 'tiempos' | 'ubicacion';
+  interface SortConfig { key: SortColumn; direction: 'asc' | 'desc'; }
+  const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
+
   // Quick Stats
   const [stats, setStats] = useState({ total: 0, pending: 0, finished: 0, walkins: 0 })
 
@@ -110,6 +115,71 @@ export default function TrazabilidadPage() {
     setPage(1)
   }
 
+  const handleSort = (key: SortColumn) => {
+    setSortConfigs(prev => {
+      const existingIdx = prev.findIndex(s => s.key === key);
+      
+      if (existingIdx === -1) {
+        // Add new sort criteria to the end of the stack
+        return [...prev, { key, direction: 'asc' }];
+      }
+      
+      const existing = prev[existingIdx];
+      if (existing.direction === 'asc') {
+        // Toggle to descending
+        const newState = [...prev];
+        newState[existingIdx] = { ...existing, direction: 'desc' };
+        return newState;
+      } else {
+        // Remove this column from sorting stack
+        return prev.filter(s => s.key !== key);
+      }
+    });
+  }
+
+  const sortedData = [...(data?.data || [])].sort((a, b) => {
+    if (sortConfigs.length === 0) return 0;
+    
+    for (const config of sortConfigs) {
+      let aValue: any = null;
+      let bValue: any = null;
+
+      switch (config.key) {
+        case 'id':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case 'empresa':
+          aValue = a.company_name;
+          bValue = b.company_name;
+          break;
+        case 'logistica':
+          aValue = new Date(`${a.scheduled_date}T${a.scheduled_time}`).getTime();
+          bValue = new Date(`${b.scheduled_date}T${b.scheduled_time}`).getTime();
+          break;
+        case 'tiempos':
+          const getWaitTime = (appt: Appointment) => {
+            if (appt.arrival_time && appt.start_unloading_time) return new Date(appt.start_unloading_time).getTime() - new Date(appt.arrival_time).getTime();
+            if (appt.arrival_time) return new Date().getTime() - new Date(appt.arrival_time).getTime();
+            return 0;
+          }
+          aValue = getWaitTime(a);
+          bValue = getWaitTime(b);
+          break;
+        case 'ubicacion':
+          aValue = a.dock_name || 'Z';
+          bValue = b.dock_name || 'Z';
+          break;
+      }
+
+      if (aValue < bValue) return config.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return config.direction === 'asc' ? 1 : -1;
+      // If values are equal, continue to the next sort criteria in the array
+    }
+    
+    return 0;
+  });
+
   const handleUpdateStatus = async (appointment: Appointment, newStatus: string) => {
     const currentStatus = appointment.status
     if (currentStatus === newStatus) return
@@ -162,7 +232,6 @@ export default function TrazabilidadPage() {
     switch (status) {
       case 'PENDIENTE': return 'bg-surface-container-high text-on-surface'
       case 'EN_PORTERIA': return 'bg-cyan-100 text-cyan-800 border-cyan-200'
-      case 'EN_PATIO': return 'bg-amber-100 text-amber-800 border-amber-200'
       case 'EN_MUELLE': return 'bg-blue-100 text-blue-800 border-blue-200'
       case 'DESCARGANDO': return 'bg-purple-100 text-purple-800 border-purple-200'
       case 'FINALIZADO': return 'bg-green-100 text-green-800 border-green-200'
@@ -235,7 +304,6 @@ export default function TrazabilidadPage() {
                 <option value="">Todos los Estados</option>
                 <option value="PENDIENTE">Pendiente</option>
                 <option value="EN_PORTERIA">En Portería</option>
-                <option value="EN_PATIO">En Patio</option>
                 <option value="EN_MUELLE">En Muelle</option>
                 <option value="DESCARGANDO">Descargando</option>
                 <option value="FINALIZADO">Finalizado</option>
@@ -254,11 +322,44 @@ export default function TrazabilidadPage() {
             <table className="w-full text-left border-collapse text-sm whitespace-nowrap">
               <thead className="sticky top-0 z-10 bg-surface-container-low shadow-[0_1px_0_theme(colors.surface.container)]">
                 <tr>
-                  <th className="px-4 py-3 text-[10px] font-black tracking-widest text-on-surface-variant/70 uppercase">ID / Estado</th>
-                  <th className="px-4 py-3 text-[10px] font-black tracking-widest text-on-surface-variant/70 uppercase">Empresa & POs</th>
-                  <th className="px-4 py-3 text-[10px] font-black tracking-widest text-on-surface-variant/70 uppercase">Logística</th>
-                  <th className="px-4 py-3 text-[10px] font-black tracking-widest text-on-surface-variant/70 uppercase">Tiempos (Min)</th>
-                  <th className="px-4 py-3 text-[10px] font-black tracking-widest text-on-surface-variant/70 uppercase">Ubicación</th>
+                  {[
+                    { key: 'id', label: 'ID / Estado' },
+                    { key: 'empresa', label: 'Empresa & POs' },
+                    { key: 'logistica', label: 'Logística' },
+                    { key: 'tiempos', label: 'Tiempos (Min)' },
+                    { key: 'ubicacion', label: 'Ubicación' },
+                  ].map(({ key, label }) => {
+                    const sortOrder = sortConfigs.findIndex(s => s.key === key);
+                    const config = sortConfigs[sortOrder];
+                    
+                    return (
+                      <th 
+                        key={key} 
+                        className="px-4 py-3 text-[10px] font-black tracking-widest text-on-surface-variant/70 uppercase cursor-pointer hover:bg-surface-container transition-all select-none group/th"
+                        onClick={() => handleSort(key as SortColumn)}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          {label}
+                          <div className="flex items-center">
+                            <span className={cn(
+                              "material-symbols-outlined text-[12px] transition-all",
+                              config ? "text-primary scale-110" : "text-on-surface-variant/20 opacity-0 group-hover/th:opacity-100"
+                            )}>
+                              {config 
+                                ? (config.direction === 'asc' ? 'arrow_upward' : 'arrow_downward') 
+                                : 'unfold_more'
+                              }
+                            </span>
+                            {sortOrder !== -1 && sortConfigs.length > 1 && (
+                              <span className="text-[8px] font-black text-primary ml-0.5 bg-primary/10 w-3 h-3 flex items-center justify-center rounded-full">
+                                {sortOrder + 1}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </th>
+                    );
+                  })}
                   <th className="px-4 py-3 text-[10px] font-black tracking-widest text-on-surface-variant/70 uppercase text-right">Acciones</th>
                 </tr>
               </thead>
@@ -272,13 +373,13 @@ export default function TrazabilidadPage() {
                       </div>
                     </td>
                   </tr>
-                ) : data?.data.length === 0 ? (
+                ) : sortedData.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-20 text-center text-on-surface-variant">
                       No se encontraron registros para estos filtros.
                     </td>
                   </tr>
-                ) : data?.data.map((a) => (
+                ) : sortedData.map((a) => (
                   <tr key={a.id} onClick={() => setDetailsAppt(a)} className={cn(
                     "group hover:bg-white transition-colors cursor-pointer",
                     a.is_walk_in ? "bg-amber-50/30" : ""
@@ -349,7 +450,7 @@ export default function TrazabilidadPage() {
                         ) : a.arrival_time && (
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-black uppercase text-on-surface-variant/60">Espera:</span>
-                            <span className="text-xs font-black animate-pulse text-primary">En patio...</span>
+                            <span className="text-xs font-black animate-pulse text-primary">En espera...</span>
                           </div>
                         )}
                         
@@ -394,7 +495,6 @@ export default function TrazabilidadPage() {
                           >
                             <option value="PENDIENTE">PENDIENTE</option>
                             <option value="EN_PORTERIA">EN PORTERÍA</option>
-                            <option value="EN_PATIO">EN PATIO</option>
                             <option value="EN_MUELLE">EN MUELLE</option>
                             <option value="DESCARGANDO">DESCARGANDO</option>
                             <option value="FINALIZADO">FINALIZADO</option>
@@ -430,6 +530,9 @@ export default function TrazabilidadPage() {
                 <option value="50">50</option>
                 <option value="100">100</option>
                 <option value="200">200</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+                <option value="2000">2000</option>
               </select>
             </div>
             

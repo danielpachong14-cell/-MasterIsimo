@@ -33,6 +33,13 @@ export function WalkInModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const sanitizedPlate = formData.license_plate.replace(/[^A-Za-z0-9]/g, '')
+    if (sanitizedPlate.length !== 6) {
+      alert("La placa debe tener exactamente 6 caracteres y no contener guiones.")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -46,12 +53,12 @@ export function WalkInModal({
         .from('appointments')
         .insert({
           company_name: formData.company_name,
-          license_plate: formData.license_plate,
-          driver_name: formData.driver_name,
+          license_plate: sanitizedPlate.toLowerCase(),
+          driver_name: formData.driver_name.trim().toLowerCase(),
           driver_phone: formData.driver_phone,
           vehicle_type_id: parseInt(formData.vehicle_type_id),
           vehicle_type: selectedVehicle?.name || '',
-          status: 'EN_PATIO', // Ingresa directo a patio
+          status: 'EN_PORTERIA', // Ingresa directo a portería
           is_walk_in: true,
           scheduled_date: new Date().toISOString().split('T')[0], // Se asigna la fecha actual
           scheduled_time: new Date().toTimeString().split(' ')[0], // y hora actual (o requeriría logica extra, pero as is walk-in it doesn't matter much)
@@ -99,7 +106,7 @@ export function WalkInModal({
             </div>
             <div>
               <h3 className="text-xl font-black font-headline">Ingreso Express</h3>
-              <p className="text-sm text-on-surface-variant">Llegada sin cita previa (Pasa a Patio Directamente)</p>
+              <p className="text-sm text-on-surface-variant">Llegada sin cita previa (Ingresa a Portería Directamente)</p>
             </div>
           </div>
 
@@ -121,15 +128,22 @@ export function WalkInModal({
             <Input 
               label="Nombre Conductor" 
               required 
+              className="capitalize"
               value={formData.driver_name}
               onChange={e => setFormData({...formData, driver_name: e.target.value})}
             />
             <Input 
               label="Teléfono Conductor" 
-              type="tel"
+              type="number"
               required 
               value={formData.driver_phone}
               onChange={e => setFormData({...formData, driver_phone: e.target.value})}
+            />
+            <Input 
+              label="Cédula Conductor (Opcional)" 
+              type="number"
+              value={formData.driver_id_card}
+              onChange={e => setFormData({...formData, driver_id_card: e.target.value})}
             />
 
             <div className="flex flex-col gap-1.5 col-span-2">
