@@ -23,6 +23,7 @@ export function WalkInModal({
     license_plate: '',
     driver_name: '',
     driver_phone: '',
+    driver_id_card: '',
     vehicle_type_id: '',
     po_number: '',
     box_count: ''
@@ -56,6 +57,7 @@ export function WalkInModal({
           license_plate: sanitizedPlate.toLowerCase(),
           driver_name: formData.driver_name.trim().toLowerCase(),
           driver_phone: formData.driver_phone,
+          driver_id_card: formData.driver_id_card,
           vehicle_type_id: parseInt(formData.vehicle_type_id),
           vehicle_type: selectedVehicle?.name || '',
           status: 'EN_PORTERIA', // Ingresa directo a portería
