@@ -27,7 +27,7 @@ export function formatDate(date: string | Date | null | undefined) {
       month: "long",
       year: "numeric",
     }).format(new Date(date))
-  } catch (e) {
+  } catch {
     return String(date)
   }
 }

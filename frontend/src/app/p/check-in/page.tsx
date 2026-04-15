@@ -344,7 +344,7 @@ export default function CheckInPage() {
               </div>
             </div>
             <p className="text-xs font-bold text-on-surface-variant mt-4 text-center bg-white/50 p-3 rounded-2xl italic leading-relaxed">
-              "Diríjase al patio de maniobras. Espere indicaciones del equipo de ISIMO para proceder con su respectivo ingreso al CEDI."
+              &quot;Diríjase al patio de maniobras. Espere indicaciones del equipo de ISIMO para proceder con su respectivo ingreso al CEDI.&quot;
             </p>
           </div>
 

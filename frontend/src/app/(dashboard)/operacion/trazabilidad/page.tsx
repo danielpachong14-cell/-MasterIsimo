@@ -141,8 +141,8 @@ export default function TrazabilidadPage() {
     if (sortConfigs.length === 0) return 0;
     
     for (const config of sortConfigs) {
-      let aValue: any = null;
-      let bValue: any = null;
+      let aValue: string | number | null = null;
+      let bValue: string | number | null = null;
 
       switch (config.key) {
         case 'id':
