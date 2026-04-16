@@ -77,7 +77,7 @@ export default function KanbanPage() {
   const updateAppointmentStatus = async (id: string, newStatus: AppointmentStatus) => {
     // Collect updates based on current logic
     const existing = appointments.find(a => a.id === id);
-    const updates: any = { status: newStatus };
+    const updates: Record<string, unknown> = { status: newStatus };
     
     if (existing) {
       if (newStatus === 'EN_PORTERIA' && !existing.arrival_time) updates.arrival_time = new Date().toISOString()

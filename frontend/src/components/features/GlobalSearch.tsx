@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Appointment } from "@/types"
 import { AppointmentDetailsModal } from "@/app/(dashboard)/operacion/trazabilidad/components/AppointmentDetailsModal"
-import { cn, capitalize } from "@/lib/utils"
+import { capitalize } from "@/lib/utils"
 
 export function GlobalSearch() {
   const [query, setQuery] = useState("")
@@ -66,7 +66,7 @@ export function GlobalSearch() {
     }
 
     search()
-  }, [debouncedQuery])
+  }, [debouncedQuery, supabase])
 
   const handleSelect = (appointment: Appointment) => {
     setSelectedAppointment(appointment)
@@ -99,7 +99,7 @@ export function GlobalSearch() {
             {!isSearching && results.length === 0 ? (
               <div className="p-6 text-center text-sm text-on-surface-variant">
                 <span className="material-symbols-outlined text-4xl opacity-50 mb-2">search_off</span>
-                <p>No se encontraron citas operativas para "{query}"</p>
+                <p>No se encontraron citas operativas para &quot;{query}&quot;</p>
               </div>
             ) : (
               <div className="flex flex-col gap-1">

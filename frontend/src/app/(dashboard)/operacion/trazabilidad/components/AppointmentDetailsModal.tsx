@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Appointment } from "@/types"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
-import { cn, formatDate, formatTime, capitalize } from "@/lib/utils"
+import { cn, formatTime, capitalize } from "@/lib/utils"
 
 interface AppointmentDetailsModalProps {
   isOpen: boolean
@@ -144,8 +144,9 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
 
       if (error) throw error
       onSuccess?.()
-    } catch (e: any) {
-      alert("Error al avanzar estado: " + e.message)
+    } catch (e: unknown) {
+      const error = e as Error
+      alert("Error al avanzar estado: " + error.message)
     } finally {
       setSaving(false)
     }
@@ -190,8 +191,9 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       onSuccess?.()
       setIsFinalizing(false)
       setFinalNote("")
-    } catch (e: any) {
-      alert("Error al finalizar operación: " + e.message)
+    } catch (e: unknown) {
+      const error = e as Error
+      alert("Error al finalizar operación: " + error.message)
     } finally {
       setSaving(false)
     }

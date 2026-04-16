@@ -71,10 +71,10 @@ export function normalizeObjectForStorage<T>(
 ): T {
   if (!data || typeof data !== 'object') return data
 
-  const normalized = Array.isArray(data) ? [] : {} as any
+  const normalized = (Array.isArray(data) ? [] : {}) as Record<string, unknown>
 
   Object.keys(data as object).forEach((k) => {
-    const value = (data as any)[k]
+    const value = (data as Record<string, unknown>)[k]
 
     // 1. Exclusión explícita por llave
     if (excludeKeys.includes(k) && typeof value === 'string') {

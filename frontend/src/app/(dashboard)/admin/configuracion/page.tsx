@@ -160,9 +160,10 @@ export default function ConfiguracionPage() {
         }
       }
       fetchData()
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e)
-      alert(`Error al procesar acción en ${table}: ${e.message || 'Error desconocido'}`)
+      const error = e as Error
+      alert(`Error al procesar acción en ${table}: ${error.message || 'Error desconocido'}`)
     }
   }
 
