@@ -213,17 +213,17 @@ export async function findAvailableSlots(
   // 4. Verificar capacidad extendida para decidir el rango de búsqueda
   let capacityLimit = null;
   if (environmentId) {
-    const { data: capLimit } = await supabase
+    const { data: capLimit, error: capError } = await supabase
       .from("daily_capacity_limits")
       .select("*")
       .eq("environment_id", environmentId)
       .eq("is_active", true)
       .single()
     capacityLimit = capLimit
-  }
-
-  if (capError && capError.code !== 'PGRST116') {
-    console.error("Error fetching capacity limit for slots:", capError)
+    
+    if (capError && capError.code !== 'PGRST116') {
+      console.error("Error fetching capacity limit for slots:", capError)
+    }
   }
 
   const startMin = parseTime(settings.start_time)

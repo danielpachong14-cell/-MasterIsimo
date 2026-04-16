@@ -62,6 +62,7 @@ export function WalkInModal({
           vehicle_type_id: parseInt(formData.vehicle_type_id),
           vehicle_type: selectedVehicle?.name || '',
           status: 'EN_PORTERIA', // Ingresa directo a portería
+          arrival_time: new Date().toISOString(), // Marca de tiempo inicial para patio
           is_walk_in: true,
           scheduled_date: new Date().toISOString().split('T')[0], // Se asigna la fecha actual
           scheduled_time: new Date().toTimeString().split(' ')[0], // y hora actual (o requeriría logica extra, pero as is walk-in it doesn't matter much)

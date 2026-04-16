@@ -75,13 +75,24 @@ export default function KanbanPage() {
 
   // Unified Status Updater for the Board
   const updateAppointmentStatus = async (id: string, newStatus: AppointmentStatus) => {
+    // Collect updates based on current logic
+    const existing = appointments.find(a => a.id === id);
+    const updates: any = { status: newStatus };
+    
+    if (existing) {
+      if (newStatus === 'EN_PORTERIA' && !existing.arrival_time) updates.arrival_time = new Date().toISOString()
+      if (newStatus === 'EN_MUELLE' && !existing.docking_time) updates.docking_time = new Date().toISOString()
+      if (newStatus === 'DESCARGANDO' && !existing.start_unloading_time) updates.start_unloading_time = new Date().toISOString()
+      if (newStatus === 'FINALIZADO' && !existing.end_unloading_time) updates.end_unloading_time = new Date().toISOString()
+    }
+    
     // Optimistic Update
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: newStatus } : a))
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a))
     
     // Server Update
     const { error } = await supabase
       .from('appointments')
-      .update({ status: newStatus })
+      .update(updates)
       .eq('id', id)
 
     if (error) fetchData() // Revert state from server if it failed

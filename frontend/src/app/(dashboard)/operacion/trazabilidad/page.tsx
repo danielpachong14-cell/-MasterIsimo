@@ -210,9 +210,13 @@ export default function TrazabilidadPage() {
       // 1. Actualizar el estado con verificación y Auto-KPIs de tiempo
       const updates: Record<string, string> = { status: newStatus }
       
-      if (newStatus === 'DESCARGANDO') {
+      if (newStatus === 'EN_PORTERIA' && !appointment.arrival_time) {
+        updates.arrival_time = new Date().toISOString()
+      } else if (newStatus === 'EN_MUELLE' && !appointment.docking_time) {
+        updates.docking_time = new Date().toISOString()
+      } else if (newStatus === 'DESCARGANDO' && !appointment.start_unloading_time) {
         updates.start_unloading_time = new Date().toISOString()
-      } else if (newStatus === 'FINALIZADO') {
+      } else if (newStatus === 'FINALIZADO' && !appointment.end_unloading_time) {
         updates.end_unloading_time = new Date().toISOString()
       }
 

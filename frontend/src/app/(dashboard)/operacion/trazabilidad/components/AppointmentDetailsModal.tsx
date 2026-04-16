@@ -127,9 +127,19 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
 
     setSaving(true)
     try {
+      const updates: Record<string, string> = { status: nextStatus }
+      
+      if (nextStatus === 'EN_PORTERIA' && !appointment.arrival_time) {
+        updates.arrival_time = new Date().toISOString()
+      } else if (nextStatus === 'EN_MUELLE' && !appointment.docking_time) {
+        updates.docking_time = new Date().toISOString()
+      } else if (nextStatus === 'DESCARGANDO' && !appointment.start_unloading_time) {
+        updates.start_unloading_time = new Date().toISOString()
+      }
+
       const { error } = await supabase
         .from('appointments')
-        .update({ status: nextStatus })
+        .update(updates)
         .eq('id', appointment.id)
 
       if (error) throw error
@@ -160,13 +170,19 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
         ? `${noteHistory}\n\n${formattedNote}`
         : formattedNote;
 
-      // 2. Atomic update: status AND notes
+      // 2. Atomic update: status AND notes AND end_unloading_time
+      const updates: Record<string, string> = {
+        status: 'FINALIZADO',
+        notes: updatedNotes
+      }
+      
+      if (!appointment.end_unloading_time) {
+        updates.end_unloading_time = new Date().toISOString()
+      }
+
       const { error } = await supabase
         .from('appointments')
-        .update({ 
-          status: 'FINALIZADO',
-          notes: updatedNotes
-        })
+        .update(updates)
         .eq('id', appointment.id)
 
       if (error) throw error
