@@ -6,13 +6,22 @@ import { Appointment, VehicleType, PaginatedResult } from "@/types"
 import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { cn, formatTime } from "@/lib/utils"
+import { cn, formatTime, capitalize } from "@/lib/utils"
 
 import { WalkInModal } from "./components/WalkInModal"
 import { EditAppointmentModal } from "./components/EditAppointmentModal"
 import { DeleteAppointmentModal } from "./components/DeleteAppointmentModal"
 import { AppointmentDetailsModal } from "./components/AppointmentDetailsModal"
 import { ScheduleSupplierModal } from "@/components/ui/ScheduleSupplierModal" // Usamos el Schedule normal para +Nueva Cita
+
+const STATUS_RANKS: Record<string, number> = {
+  'PENDIENTE': 0,
+  'EN_PORTERIA': 1,
+  'EN_MUELLE': 2,
+  'DESCARGANDO': 3,
+  'FINALIZADO': 4,
+  'CANCELADO': 99
+};
 
 export default function TrazabilidadPage() {
   const [data, setData] = useState<PaginatedResult<Appointment> | null>(null)
@@ -47,6 +56,14 @@ export default function TrazabilidadPage() {
 
   // Quick Stats
   const [stats, setStats] = useState({ total: 0, pending: 0, finished: 0, walkins: 0 })
+
+  const calculateDuration = (start?: string | null, end?: string | null, isActive?: boolean) => {
+    if (!start) return '--'
+    const startTime = new Date(start).getTime()
+    const endTime = end ? new Date(end).getTime() : new Date().getTime()
+    const diff = Math.round((endTime - startTime) / 60000)
+    return `${diff} min${!end && isActive ? ' (activo)' : ''}`
+  }
 
   const fetchAppointments = useCallback(async () => {
     setLoading(true)
@@ -391,7 +408,7 @@ export default function TrazabilidadPage() {
                           "px-2 py-0.5 rounded border text-[10px] font-bold tracking-wider",
                           getStatusBadge(a.status)
                         )}>
-                          {a.status}
+                          {capitalize(a.status)}
                         </div>
                         {a.punctuality_status && a.punctuality_status !== 'N/A (Sin Cita)' && (
                           <div className={cn(
@@ -407,7 +424,7 @@ export default function TrazabilidadPage() {
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-on-surface">{a.company_name}</span>
+                          <span className="font-bold text-on-surface">{capitalize(a.company_name)}</span>
                           {a.is_walk_in && (
                             <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-sm">
                               <span className="material-symbols-outlined text-[10px]">bolt</span> EXPRESS
@@ -433,40 +450,39 @@ export default function TrazabilidadPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        {/* Espera calculation */}
-                        {a.arrival_time && a.start_unloading_time ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-on-surface-variant/60">Espera:</span>
-                            <span className={cn(
-                              "text-xs font-black px-1.5 py-0.5 rounded",
-                              Math.round((new Date(a.start_unloading_time).getTime() - new Date(a.arrival_time).getTime()) / 60000) > 60 
-                                ? "bg-red-100 text-red-700" 
-                                : "bg-surface-container text-on-surface"
-                            )}>
-                              {Math.round((new Date(a.start_unloading_time).getTime() - new Date(a.arrival_time).getTime()) / 60000)} min
-                            </span>
-                          </div>
-                        ) : a.arrival_time && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-on-surface-variant/60">Espera:</span>
-                            <span className="text-xs font-black animate-pulse text-primary">En espera...</span>
-                          </div>
-                        )}
+                      <div className="flex flex-col gap-1.5 min-w-[140px]">
+                        {/* Patio: Porteria -> Muelle */}
+                        <div className="flex items-center justify-between gap-3 group/time">
+                          <span className="text-[9px] font-black uppercase text-amber-600 tracking-tighter">Patio</span>
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded border border-transparent transition-all",
+                            a.status === 'EN_PORTERIA' ? "bg-amber-100 text-amber-700 animate-pulse border-amber-200" : "bg-surface-container text-on-surface"
+                          )}>
+                            {calculateDuration(a.arrival_time, a.docking_time, a.status === 'EN_PORTERIA')}
+                          </span>
+                        </div>
                         
-                        {/* Descargue calculation */}
-                        {a.start_unloading_time && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black uppercase text-on-surface-variant/60">Descargue:</span>
-                            {a.end_unloading_time ? (
-                              <span className="text-xs font-black bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
-                                {Math.round((new Date(a.end_unloading_time).getTime() - new Date(a.start_unloading_time).getTime()) / 60000)} min
-                              </span>
-                            ) : (
-                              <span className="text-xs font-black animate-pulse text-blue-600">Descargando ({Math.round((new Date().getTime() - new Date(a.start_unloading_time).getTime()) / 60000)} min)</span>
-                            )}
-                          </div>
-                        )}
+                        {/* Muelle: Muelle -> Descargue */}
+                        <div className="flex items-center justify-between gap-3 group/time">
+                          <span className="text-[9px] font-black uppercase text-blue-600 tracking-tighter">Posición</span>
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded border border-transparent transition-all",
+                            a.status === 'EN_MUELLE' ? "bg-blue-100 text-blue-700 animate-pulse border-blue-200" : "bg-surface-container text-on-surface"
+                          )}>
+                            {calculateDuration(a.docking_time, a.start_unloading_time, a.status === 'EN_MUELLE')}
+                          </span>
+                        </div>
+
+                        {/* Operación: Descargue -> Fin */}
+                        <div className="flex items-center justify-between gap-3 group/time">
+                          <span className="text-[9px] font-black uppercase text-indigo-700 tracking-tighter">Descargue</span>
+                          <span className={cn(
+                            "text-[10px] font-bold px-1.5 py-0.5 rounded border border-transparent transition-all",
+                            a.status === 'DESCARGANDO' ? "bg-indigo-100 text-indigo-700 animate-pulse border-indigo-200" : "bg-surface-container text-on-surface"
+                          )}>
+                            {calculateDuration(a.start_unloading_time, a.end_unloading_time, a.status === 'DESCARGANDO')}
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -479,7 +495,7 @@ export default function TrazabilidadPage() {
                         ) : (
                           <span className="text-on-surface-variant/40 text-[10px] italic">No asignado</span>
                         )}
-                        <span className="text-[10px] font-bold text-on-surface-variant/60">{a.vehicle_type}</span>
+                        <span className="text-[10px] font-bold text-on-surface-variant/60">{capitalize(a.vehicle_type)}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
@@ -487,19 +503,23 @@ export default function TrazabilidadPage() {
                       <div className="flex items-center justify-end gap-1">
                         {/* Status Change Styled Select (Habilitado para todos los estados) */}
                         <div className="relative">
-                          <select 
-                            title="Cambiar Estado"
-                            className="h-8 px-2 pr-6 rounded-lg border-2 border-surface-container bg-white text-[10px] font-black uppercase tracking-wider text-on-surface-variant hover:border-primary focus:border-primary transition-all outline-none cursor-pointer appearance-none"
-                            value={a.status}
-                            onChange={(e) => handleUpdateStatus(a, e.target.value)}
-                          >
-                            <option value="PENDIENTE">PENDIENTE</option>
-                            <option value="EN_PORTERIA">EN PORTERÍA</option>
-                            <option value="EN_MUELLE">EN MUELLE</option>
-                            <option value="DESCARGANDO">DESCARGANDO</option>
-                            <option value="FINALIZADO">FINALIZADO</option>
-                            <option value="CANCELADO">CANCELADO</option>
-                          </select>
+                            <select 
+                              title="Cambiar Estado"
+                              className={cn(
+                                "h-8 px-2 pr-6 rounded-lg border-2 border-surface-container bg-white text-[10px] font-black uppercase tracking-wider transition-all outline-none cursor-pointer appearance-none",
+                                (STATUS_RANKS[a.status] >= 4 && STATUS_RANKS[a.status] !== 99) ? "opacity-50 cursor-not-allowed pointer-events-none" : "hover:border-primary focus:border-primary text-on-surface-variant"
+                              )}
+                              value={a.status}
+                              disabled={STATUS_RANKS[a.status] >= 4}
+                              onChange={(e) => handleUpdateStatus(a, e.target.value)}
+                            >
+                              <option value="PENDIENTE" disabled={STATUS_RANKS[a.status] > 0}>PENDIENTE</option>
+                              <option value="EN_PORTERIA" disabled={STATUS_RANKS[a.status] > 1}>EN PORTERÍA</option>
+                              <option value="EN_MUELLE" disabled={STATUS_RANKS[a.status] > 2}>EN MUELLE</option>
+                              <option value="DESCARGANDO" disabled={STATUS_RANKS[a.status] > 3}>DESCARGANDO</option>
+                              <option value="FINALIZADO" disabled={STATUS_RANKS[a.status] > 4}>FINALIZADO</option>
+                              <option value="CANCELADO" disabled={STATUS_RANKS[a.status] >= 4}>CANCELADO</option>
+                            </select>
                           <span className="material-symbols-outlined absolute right-1.5 top-1/2 -translate-y-1/2 text-[14px] pointer-events-none text-on-surface-variant/40">
                             unfold_more
                           </span>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Appointment } from "@/types"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
-import { cn, formatDate, formatTime } from "@/lib/utils"
+import { cn, formatDate, formatTime, capitalize } from "@/lib/utils"
 
 interface AppointmentDetailsModalProps {
   isOpen: boolean
@@ -13,6 +13,20 @@ interface AppointmentDetailsModalProps {
   onSuccess?: () => void
 }
 
+const STATUS_SEQUENCE: Record<string, string> = {
+  'PENDIENTE': 'EN_PORTERIA',
+  'EN_PORTERIA': 'EN_MUELLE',
+  'EN_MUELLE': 'DESCARGANDO',
+  'DESCARGANDO': 'FINALIZADO'
+};
+
+const NEXT_ACTION_LABELS: Record<string, { label: string, icon: string, color: string }> = {
+  'EN_PORTERIA': { label: 'INGRESAR A PORTERÍA', icon: 'login', color: 'bg-white text-primary hover:bg-blue-50' },
+  'EN_MUELLE': { label: 'INGRESAR A MUELLE', icon: 'warehouse', color: 'bg-amber-500 text-white border-amber-400' },
+  'DESCARGANDO': { label: 'INICIAR DESCARGUE', icon: 'play_circle', color: 'bg-sky-500 text-white border-sky-400' },
+  'FINALIZADO': { label: 'FINALIZAR OPERACIÓN', icon: 'check_circle', color: 'bg-emerald-500 text-white border-emerald-400' }
+};
+
 export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSuccess }: AppointmentDetailsModalProps) {
   const [newNote, setNewNote] = useState("")
   const [noteHistory, setNoteHistory] = useState("")
@@ -20,6 +34,8 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
   const [isEditingHistory, setIsEditingHistory] = useState(false)
   const [editingContent, setEditingContent] = useState("")
   const [saving, setSaving] = useState(false)
+  const [isFinalizing, setIsFinalizing] = useState(false)
+  const [finalNote, setFinalNote] = useState("")
   const supabase = createClient()
 
   useEffect(() => {
@@ -98,6 +114,73 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     }
   }
 
+  const handleAdvanceStatus = async () => {
+    if (!appointment) return
+    const nextStatus = STATUS_SEQUENCE[appointment.status]
+    if (!nextStatus) return
+
+    // If it's the final step, intercept to ask for a note
+    if (nextStatus === 'FINALIZADO') {
+      setIsFinalizing(true)
+      return
+    }
+
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: nextStatus })
+        .eq('id', appointment.id)
+
+      if (error) throw error
+      onSuccess?.()
+    } catch (e: any) {
+      alert("Error al avanzar estado: " + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleConfirmFinalization = async () => {
+    if (!appointment || !finalNote.trim()) return
+
+    setSaving(true)
+    try {
+      // 1. Prepare the note log
+      const timestamp = new Date().toLocaleString('es-CO', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      const formattedNote = `[CIERRE OPERATIVO - ${timestamp}] ${finalNote}`;
+      const updatedNotes = noteHistory 
+        ? `${noteHistory}\n\n${formattedNote}`
+        : formattedNote;
+
+      // 2. Atomic update: status AND notes
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'FINALIZADO',
+          notes: updatedNotes
+        })
+        .eq('id', appointment.id)
+
+      if (error) throw error
+      
+      onSuccess?.()
+      setIsFinalizing(false)
+      setFinalNote("")
+    } catch (e: any) {
+      alert("Error al finalizar operación: " + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const getPunctualityStyle = (status?: string | null) => {
     if (!status || status === 'N/A (Sin Cita)') return "bg-surface-container-high text-on-surface-variant"
     if (status === 'TARDE') return "bg-red-100 text-red-700 border-red-200"
@@ -105,17 +188,22 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     return "bg-blue-100 text-blue-700 border-blue-200"
   }
 
-  const waitTimeStr = appointment.arrival_time && appointment.start_unloading_time
-    ? `${Math.round((new Date(appointment.start_unloading_time).getTime() - new Date(appointment.arrival_time).getTime()) / 60000)} min`
-    : appointment.arrival_time
-      ? `${Math.round((new Date().getTime() - new Date(appointment.arrival_time).getTime()) / 60000)} min (activo)`
-      : '--'
+  const formatTimeOnly = (dateString?: string | null) => {
+    if (!dateString) return '--:--'
+    return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
 
-  const unloadingTimeStr = appointment.start_unloading_time && appointment.end_unloading_time
-    ? `${Math.round((new Date(appointment.end_unloading_time).getTime() - new Date(appointment.start_unloading_time).getTime()) / 60000)} min`
-    : appointment.start_unloading_time
-      ? `${Math.round((new Date().getTime() - new Date(appointment.start_unloading_time).getTime()) / 60000)} min (activo)`
-      : '--'
+  const calculateDuration = (start?: string | null, end?: string | null, isActive?: boolean) => {
+    if (!start) return '--'
+    const startTime = new Date(start).getTime()
+    const endTime = end ? new Date(end).getTime() : new Date().getTime()
+    const diff = Math.round((endTime - startTime) / 60000)
+    return `${diff} min${!end && isActive ? ' (activo)' : ''}`
+  }
+
+  const patioDuration = calculateDuration(appointment.arrival_time, appointment.docking_time, appointment.status === 'EN_PORTERIA')
+  const dockDuration = calculateDuration(appointment.docking_time, appointment.start_unloading_time, appointment.status === 'EN_MUELLE')
+  const unloadingDuration = calculateDuration(appointment.start_unloading_time, appointment.end_unloading_time, appointment.status === 'DESCARGANDO')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -135,7 +223,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                 {appointment.appointment_number || appointment.id.split('-')[0]}
               </p>
               <h2 className="text-3xl font-black font-headline tracking-tighter leading-none">
-                {appointment.company_name}
+                {capitalize(appointment.company_name)}
               </h2>
             </div>
 
@@ -154,6 +242,71 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                   EXPRESS
                 </span>
               )}
+
+              {/* Minimalist Advance Button / Final Note Input */}
+              {STATUS_SEQUENCE[appointment.status] && (
+                !isFinalizing ? (
+                  <button
+                    onClick={handleAdvanceStatus}
+                    disabled={saving}
+                    className={cn(
+                      "ml-4 px-6 py-2 rounded-full text-[11px] font-black tracking-[0.15em] uppercase flex items-center gap-2.5 transition-all hover:scale-105 active:scale-95 shadow-xl border-b-2 border-white/20 hover:brightness-110",
+                      NEXT_ACTION_LABELS[STATUS_SEQUENCE[appointment.status]].color,
+                      saving && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      {NEXT_ACTION_LABELS[STATUS_SEQUENCE[appointment.status]].icon}
+                    </span>
+                    {NEXT_ACTION_LABELS[STATUS_SEQUENCE[appointment.status]].label}
+                  </button>
+                ) : (
+                  <div className="ml-4 flex items-center gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <div className="relative group">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={finalNote}
+                        onChange={(e) => setFinalNote(e.target.value.slice(0, 280))}
+                        placeholder="Nota final (estilo tweet)..."
+                        className="bg-white/10 border border-white/20 text-white text-xs px-4 py-2 rounded-xl w-64 focus:outline-none focus:ring-2 focus:ring-emerald-400 placeholder:text-white/40 transition-all font-medium"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && finalNote.trim()) handleConfirmFinalization();
+                          if (e.key === 'Escape') setIsFinalizing(false);
+                        }}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        <span className={cn(
+                          "text-[9px] font-black tabular-nums transition-colors",
+                          finalNote.length >= 260 ? "text-amber-400" : "text-white/40"
+                        )}>
+                          {280 - finalNote.length}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={handleConfirmFinalization}
+                      disabled={saving || !finalNote.trim()}
+                      className="bg-emerald-500 text-white p-2 rounded-xl shadow-lg hover:scale-110 active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center group"
+                      title="Confirmar Cierre"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">done_all</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setIsFinalizing(false);
+                        setFinalNote("");
+                      }}
+                      className="bg-white/10 text-white/60 p-2 rounded-xl hover:bg-white/20 transition-all"
+                      title="Cancelar"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                  </div>
+                )
+              )}
             </div>
           </div>
           
@@ -170,29 +323,65 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Tiempos Vitales */}
-            <div className="md:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="md:col-span-3 grid grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm">
-                <span className="material-symbols-outlined text-primary mb-2">schedule</span>
-                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Agendado (Cita)</p>
-                <p className="font-bold text-on-surface">{formatTime(appointment.scheduled_time)}</p>
-                <p className="text-xs text-on-surface-variant">{formatDate(appointment.scheduled_date)}</p>
+                <span className="material-symbols-outlined text-primary mb-1 text-[18px]">schedule</span>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest leading-none mb-1">Cita</p>
+                <p className="font-bold text-base text-on-surface">{formatTime(appointment.scheduled_time)}</p>
               </div>
               <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm">
-                <span className="material-symbols-outlined text-success mb-2">login</span>
-                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Llegada Real</p>
-                <p className="font-bold text-on-surface">
+                <span className="material-symbols-outlined text-success mb-1 text-[18px]">login</span>
+                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest leading-none mb-1">Llegada</p>
+                <p className="font-bold text-base text-on-surface text-success">
                   {appointment.arrival_time ? new Date(appointment.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                 </p>
               </div>
-              <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm">
-                <span className="material-symbols-outlined text-amber-500 mb-2">timer</span>
-                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Tiempo de Espera</p>
-                <p className="font-bold text-on-surface">{waitTimeStr}</p>
+              <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm border-l-4 border-l-amber-500 flex flex-col">
+                <p className="text-[9px] font-black text-amber-600 uppercase tracking-tighter mb-1">Tiempo en Patio</p>
+                <p className="font-black text-lg text-on-surface leading-none">{patioDuration}</p>
+                <p className="text-[8px] text-on-surface-variant my-1.5 uppercase">Portería → Muelle</p>
+                <div className="mt-auto pt-2 border-t border-surface-container flex flex-col gap-0.5">
+                  <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
+                    <span className="font-bold">Inicio:</span>
+                    <span className="font-mono">{formatTimeOnly(appointment.arrival_time)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
+                    <span className="font-bold">Fin:</span>
+                    <span className="font-mono">{formatTimeOnly(appointment.docking_time)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm">
-                <span className="material-symbols-outlined text-blue-500 mb-2">local_shipping</span>
-                <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Tiempo Descargue</p>
-                <p className="font-bold text-on-surface">{unloadingTimeStr}</p>
+              
+              <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm border-l-4 border-l-blue-500 flex flex-col">
+                <p className="text-[9px] font-black text-blue-600 uppercase tracking-tighter mb-1">Tiempo en Muelle</p>
+                <p className="font-black text-lg text-on-surface leading-none">{dockDuration}</p>
+                <p className="text-[8px] text-on-surface-variant my-1.5 uppercase">Muelle → Descarga</p>
+                <div className="mt-auto pt-2 border-t border-surface-container flex flex-col gap-0.5">
+                  <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
+                    <span className="font-bold">Inicio:</span>
+                    <span className="font-mono">{formatTimeOnly(appointment.docking_time)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
+                    <span className="font-bold">Fin:</span>
+                    <span className="font-mono">{formatTimeOnly(appointment.start_unloading_time)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm border-l-4 border-l-indigo-600 flex flex-col">
+                <p className="text-[9px] font-black text-indigo-700 uppercase tracking-tighter mb-1">Tiempo Descargue</p>
+                <p className="font-black text-lg text-on-surface leading-none">{unloadingDuration}</p>
+                <p className="text-[8px] text-on-surface-variant my-1.5 uppercase">Operación Activa</p>
+                <div className="mt-auto pt-2 border-t border-surface-container flex flex-col gap-0.5">
+                  <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
+                    <span className="font-bold">Inicio:</span>
+                    <span className="font-mono">{formatTimeOnly(appointment.start_unloading_time)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
+                    <span className="font-bold">Fin:</span>
+                    <span className="font-mono">{formatTimeOnly(appointment.end_unloading_time)}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -203,13 +392,13 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                 <div className="grid grid-cols-2 gap-y-4 gap-x-6">
                   <div>
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase">Chofer</p>
-                    <p className="font-bold text-sm text-on-surface capitalize">{appointment.driver_name}</p>
+                    <p className="font-bold text-sm text-on-surface capitalize">{capitalize(appointment.driver_name)}</p>
                     <p className="text-xs text-on-surface-variant">{appointment.driver_phone}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase">Vehículo</p>
                     <p className="font-bold text-sm text-on-surface uppercase">{appointment.license_plate}</p>
-                    <p className="text-xs text-on-surface-variant">{appointment.vehicle_type}</p>
+                    <p className="text-xs text-on-surface-variant">{capitalize(appointment.vehicle_type)}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase mb-2">Órdenes de Compra (POs)</p>

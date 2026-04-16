@@ -15,7 +15,7 @@ import type {
  */
 export async function checkDailyCapacity(
   date: string,
-  environmentId: number,
+  environmentId: number | null,
   newBoxes: number
 ): Promise<CapacityCheckResult> {
   const supabase = createClient()
@@ -32,8 +32,8 @@ export async function checkDailyCapacity(
     console.error("Error fetching capacity limit:", limitError)
   }
 
-  if (!limitRow) {
-    // Sin límite configurado → permitir todo, sin alertas
+  if (!limitRow || !environmentId) {
+    // Sin límite configurado o sin ambiente → permitir todo, sin alertas
     return {
       withinNormal: true,
       withinExtended: true,
@@ -91,20 +91,25 @@ export async function checkDailyCapacity(
  * 4. Match genérico: solo ambiente + rango cajas
  */
 export async function resolveSchedulingRule(
-  environmentId: number,
+  environmentId: number | null,
   vehicleTypeId: number | null,
   categoryId: number | null,
   totalBoxes: number
 ): Promise<SchedulingRule | null> {
   const supabase = createClient()
 
-  const { data: rules } = await supabase
+  let query = supabase
     .from("scheduling_rules")
     .select("*")
     .eq("is_active", true)
-    .eq("environment_id", environmentId)
     .lte("min_boxes", totalBoxes)
     .order("priority", { ascending: false })
+
+  if (environmentId) {
+    query = query.eq("environment_id", environmentId)
+  }
+  
+  const { data: rules } = await query
 
   if (!rules || rules.length === 0) return null
 
@@ -135,7 +140,7 @@ export async function resolveSchedulingRule(
 export async function findAvailableSlots(
   date: string,
   durationMinutes: number,
-  environmentId: number,
+  environmentId: number | null,
   vehicleTypeId: number | null
 ): Promise<AvailableSlot[]> {
   const supabase = createClient()
@@ -174,7 +179,8 @@ export async function findAvailableSlots(
     if (!dock.environment_id) return true;
     
     // 3. Match de ambiente
-    if (dock.environment_id !== environmentId) return false;
+    // 3. Match de ambiente (solo si se especificó uno)
+    if (environmentId && dock.environment_id && dock.environment_id !== environmentId) return false;
     
     // 4. Verificar vehículo soportado (si el muelle tiene restricciones configuradas)
     const svt = dock.supported_vehicle_types || []
@@ -205,12 +211,16 @@ export async function findAvailableSlots(
   }))
 
   // 4. Verificar capacidad extendida para decidir el rango de búsqueda
-  const { data: capacityLimit, error: capError } = await supabase
-    .from("daily_capacity_limits")
-    .select("*")
-    .eq("environment_id", environmentId)
-    .eq("is_active", true)
-    .single()
+  let capacityLimit = null;
+  if (environmentId) {
+    const { data: capLimit } = await supabase
+      .from("daily_capacity_limits")
+      .select("*")
+      .eq("environment_id", environmentId)
+      .eq("is_active", true)
+      .single()
+    capacityLimit = capLimit
+  }
 
   if (capError && capError.code !== 'PGRST116') {
     console.error("Error fetching capacity limit for slots:", capError)
@@ -263,7 +273,7 @@ export async function findAvailableSlots(
 
 export interface SchedulingRequest {
   date: string
-  environmentId: number
+  environmentId: number | null
   vehicleTypeId: number | null
   categoryId: number | null
   totalBoxes: number

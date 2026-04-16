@@ -27,6 +27,20 @@ const COLUMNS: { id: AppointmentStatus; title: string }[] = [
   { id: 'FINALIZADO', title: 'Finalizado' },
 ]
 
+const STATUS_ORDER: AppointmentStatus[] = ['PENDIENTE', 'EN_PORTERIA', 'EN_MUELLE', 'DESCARGANDO', 'FINALIZADO'];
+
+const isTransitionAllowed = (current: AppointmentStatus, next: AppointmentStatus) => {
+  if (next === 'CANCELADO') return current !== 'FINALIZADO' && current !== 'CANCELADO';
+  if (current === 'CANCELADO' || current === 'FINALIZADO') return false;
+  
+  const currentIndex = STATUS_ORDER.indexOf(current);
+  const nextIndex = STATUS_ORDER.indexOf(next);
+  
+  if (currentIndex === -1 || nextIndex === -1) return false;
+  
+  return nextIndex > currentIndex;
+}
+
 interface KanbanBoardProps {
   appointments: Appointment[];
   onStatusChange: (id: string, newStatus: AppointmentStatus) => Promise<void>;
@@ -87,7 +101,12 @@ export function KanbanBoard({ appointments, onStatusChange, onCardClick }: Kanba
     }
 
     if (newStatus !== appointment.status) {
-      await onStatusChange(String(activeId), newStatus)
+      if (isTransitionAllowed(appointment.status, newStatus)) {
+        await onStatusChange(String(activeId), newStatus)
+      } else {
+        // Devolver la tarjeta (DND-kit lo hace solo si no actualizamos el estado)
+        console.warn(`Transición de ${appointment.status} a ${newStatus} no permitida.`);
+      }
     }
   }
 

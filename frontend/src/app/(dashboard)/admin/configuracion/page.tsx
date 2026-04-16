@@ -13,7 +13,7 @@ import {
 import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
-import { cn } from "@/lib/utils"
+import { cn, capitalize, normalizeObjectForStorage } from "@/lib/utils"
 
 const LOGISTICS_ICONS = [
   // LOGÍSTICA
@@ -67,12 +67,12 @@ export default function ConfiguracionPage() {
     setLoading(true)
     try {
       const [envRes, limitRes, ruleRes, vehRes, catRes, dockRes, cediRes] = await Promise.all([
-        supabase.from('environments').select('*').eq('is_active', true),
-        supabase.from('daily_capacity_limits').select('*, environment:environments(*)').eq('is_active', true),
+        supabase.from('environments').select('*'),
+        supabase.from('daily_capacity_limits').select('*, environment:environments(*)'),
         supabase.from('scheduling_rules').select('*, environment:environments(*), vehicle_type:vehicle_types(*), category:product_categories(*)').order('priority', { ascending: true }),
-        supabase.from('vehicle_types').select('*').eq('is_active', true),
-        supabase.from('product_categories').select('*').eq('is_active', true),
-        supabase.from('docks').select('*, environment:environments(*)').eq('is_active', true).order('name'),
+        supabase.from('vehicle_types').select('*'),
+        supabase.from('product_categories').select('*'),
+        supabase.from('docks').select('*, environment:environments(*)').order('name'),
         supabase.from('cedi_settings').select('*').single()
       ])
 
@@ -105,16 +105,9 @@ export default function ConfiguracionPage() {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { environment, vehicle_type, category, created_at, updated_at, ...cleanPayload } = data
       
-      // 2. Manejo de ID y campos por defecto y estandarización a minúsculas
-      const payload = { ...cleanPayload }
+      // 2. Manejo de ID y campos por defecto y estandarización dinámica
+      const payload = normalizeObjectForStorage({ ...cleanPayload })
       
-      // Transformar todos los strings a minúsculas
-      Object.keys(payload).forEach(key => {
-        if (typeof payload[key] === 'string') {
-          payload[key] = payload[key].toLowerCase()
-        }
-      })
-
       if (!payload.id) {
         delete payload.id // Asegurar que sea autoincremental si no existe
         if (table !== 'scheduling_rules') { // La mayoría de tablas maestras usan is_active
@@ -149,18 +142,27 @@ export default function ConfiguracionPage() {
   }
 
   const handleDelete = async (table: string, id: string | number, logical: boolean = true) => {
-    const action = logical ? "Desactivar" : "Eliminar"
-    if (!confirm(`¿Estás seguro de que deseas ${action.toLowerCase()} este registro?`)) return
+    const action = logical ? "descactivar" : "eliminar permanentemente"
+    if (!confirm(`¿Estás seguro de que deseas ${action} este registro?`)) return
     
     try {
       const { error } = logical 
         ? await supabase.from(table).update({ is_active: false }).eq('id', id)
         : await supabase.from(table).delete().eq('id', id)
       
-      if (error) throw error
+      if (error) {
+        // Manejo amigable de restricciones de integridad referencial
+        if (error.code === '23503') {
+          alert("⚠️ No se puede eliminar por completo porque está siendo usado por otros registros. Se procederá a desactivarlo para mantener la integridad.")
+          await supabase.from(table).update({ is_active: false }).eq('id', id)
+        } else {
+          throw error
+        }
+      }
       fetchData()
-    } catch {
-      alert(`Error al procesar acción en ${table}`)
+    } catch (e: any) {
+      console.error(e)
+      alert(`Error al procesar acción en ${table}: ${e.message || 'Error desconocido'}`)
     }
   }
 
@@ -212,7 +214,7 @@ export default function ConfiguracionPage() {
         
         {/* SECCIÓN: AMBIENTES OPERATIVOS */}
         <section className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center text-primary shadow-sm">
                 <span className="material-symbols-outlined text-2xl">warehouse</span>
@@ -222,42 +224,49 @@ export default function ConfiguracionPage() {
                 <p className="text-xs text-on-surface-variant font-bold uppercase tracking-widest">Zonas del CEDI</p>
               </div>
             </div>
-            <Button onClick={() => { setEditingItem({}); setActiveModal('env') }} size="sm" className="gap-2">
+            <Button onClick={() => { setEditingItem({}); setActiveModal('env') }} variant="secondary" size="sm" className="gap-2">
               <span className="material-symbols-outlined text-[18px]">add</span>
               Nuevo
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {environments.map(env => (
-              <Card key={env.id} className="p-5 border-white/50 bg-white/40 backdrop-blur-md group hover:shadow-lg transition-all border">
-                <div className="flex items-center justify-between mb-4">
-                  <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110",
-                    env.name === 'Secos' ? "bg-amber-500" : 
-                    env.name === 'Fríos' ? "bg-blue-500" : "bg-purple-500"
+          <Card className="overflow-hidden border-outline-variant/30 shadow-subtle bg-white/60">
+            <div className="h-[400px] overflow-y-auto p-5 custom-scrollbar">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {environments.map(env => (
+                  <Card key={env.id} className={cn(
+                    "p-5 border-white/50 bg-white/40 backdrop-blur-md group hover:shadow-lg transition-all border",
+                    !env.is_active && "opacity-60 grayscale-[0.4]"
                   )}>
-                    <span className="material-symbols-outlined text-xl">{env.icon}</span>
-                  </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setEditingItem(env); setActiveModal('env') }} className="p-1.5 hover:bg-primary/10 text-primary rounded-lg">
-                      <span className="material-symbols-outlined text-sm">edit</span>
-                    </button>
-                    <button onClick={() => handleDelete('environments', env.id)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg text-on-surface-variant">
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
-                  </div>
-                </div>
-                <h3 className="text-lg font-black font-headline truncate">{env.display_name}</h3>
-                <p className="text-[10px] text-on-surface-variant font-mono uppercase tracking-widest">{env.name}</p>
-              </Card>
-            ))}
-          </div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110",
+                        env.name === 'Secos' ? "bg-amber-500" : 
+                        env.name === 'Fríos' ? "bg-blue-500" : "bg-purple-500"
+                      )}>
+                        <span className="material-symbols-outlined text-xl">{env.icon}</span>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingItem(env); setActiveModal('env') }} className="p-1.5 hover:bg-primary/10 text-primary rounded-lg">
+                          <span className="material-symbols-outlined text-sm">edit</span>
+                        </button>
+                        <button onClick={() => handleDelete('environments', env.id, false)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg text-on-surface-variant">
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-black font-headline truncate">{capitalize(env.display_name)}</h3>
+                    <p className="text-[10px] text-on-surface-variant font-mono uppercase tracking-widest">{env.name}</p>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </Card>
         </section>
 
         {/* SECCIÓN: MUELLES / DOCKS */}
         <section className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-600 shadow-sm">
                 <span className="material-symbols-outlined text-2xl">dock</span>
@@ -274,7 +283,7 @@ export default function ConfiguracionPage() {
           </div>
           
           <Card className="overflow-hidden border-outline-variant/30 shadow-subtle bg-white/60">
-            <div className="max-h-[300px] overflow-y-auto">
+            <div className="h-[400px] overflow-y-auto p-0 custom-scrollbar">
               <table className="w-full text-left border-collapse">
                 <thead className="bg-surface-container-lowest sticky top-0 z-10">
                   <tr>
@@ -286,15 +295,18 @@ export default function ConfiguracionPage() {
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
                   {docks.map(dock => (
-                    <tr key={dock.id} className="hover:bg-surface-container-lowest transition-colors group">
-                      <td className="px-5 py-3 font-bold text-sm">{dock.name}</td>
+                    <tr key={dock.id} className={cn(
+                      "hover:bg-surface-container-lowest transition-all group",
+                      (!dock.is_active || dock.type === 'CARGUE') && "opacity-60 grayscale-[0.4]"
+                    )}>
+                      <td className="px-5 py-3 font-bold text-sm">{capitalize(dock.name)}</td>
                       <td className="px-5 py-3">
                         <span className={cn(
                           "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider",
-                          dock.environment?.name === 'Secos' ? "bg-amber-100 text-amber-700" : 
-                          dock.environment?.name === 'Fríos' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
+                          dock.environment?.name === 'secos' ? "bg-amber-100 text-amber-700" : 
+                          dock.environment?.name === 'fríos' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
                         )}>
-                          {dock.environment?.display_name || 'Sin Asignar'}
+                          {capitalize(dock.environment?.display_name) || 'Sin Asignar'}
                         </span>
                       </td>
                       <td className="px-5 py-3">
@@ -347,7 +359,7 @@ export default function ConfiguracionPage() {
         
         {/* SECCIÓN: TIPOS DE VEHÍCULOS */}
         <section className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center text-green-600 shadow-sm">
                 <span className="material-symbols-outlined text-2xl">local_shipping</span>
@@ -357,26 +369,30 @@ export default function ConfiguracionPage() {
                 <p className="text-xs text-on-surface-variant font-bold uppercase tracking-widest">Base de Cálculo</p>
               </div>
             </div>
-            <Button onClick={() => { setEditingItem({}); setActiveModal('vehicle') }} size="sm" className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+            <Button onClick={() => { setEditingItem({}); setActiveModal('vehicle') }} variant="secondary" size="sm" className="gap-2">
               <span className="material-symbols-outlined text-[18px]">add</span>
               Nuevo Tipo
             </Button>
           </div>
           
           <Card className="overflow-hidden border-outline-variant/30 shadow-subtle bg-white/60">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-surface-container-lowest">
-                <tr>
-                  <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Nombre</th>
-                  <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Cajas Base</th>
-                  <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Tiempo</th>
-                  <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right"></th>
-                </tr>
-              </thead>
+            <div className="h-[400px] overflow-y-auto p-0 custom-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-surface-container-lowest sticky top-0 z-10">
+                  <tr>
+                    <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Nombre</th>
+                    <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Cajas Base</th>
+                    <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Tiempo</th>
+                    <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right"></th>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-outline-variant/10">
                 {vehicleTypes.map(v => (
-                  <tr key={v.id} className="hover:bg-surface-container-lowest transition-colors group">
-                    <td className="px-5 py-3 font-bold text-sm text-on-surface">{v.name}</td>
+                  <tr key={v.id} className={cn(
+                    "hover:bg-surface-container-lowest transition-colors group",
+                    !v.is_active && "opacity-60 grayscale-[0.4]"
+                  )}>
+                    <td className="px-5 py-3 font-bold text-sm text-on-surface">{capitalize(v.name)}</td>
                     <td className="px-5 py-3 text-sm font-black">{v.base_boxes} <span className="text-[9px] font-bold text-on-surface-variant">CAJAS</span></td>
                     <td className="px-5 py-3">
                       <div className="flex flex-col">
@@ -389,7 +405,7 @@ export default function ConfiguracionPage() {
                         <button onClick={() => { setEditingItem(v); setActiveModal('vehicle') }} className="p-1.5 hover:bg-primary/10 text-primary rounded-lg">
                           <span className="material-symbols-outlined text-sm">edit</span>
                         </button>
-                        <button onClick={() => handleDelete('vehicle_types', v.id)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg">
+                        <button onClick={() => handleDelete('vehicle_types', v.id, false)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg">
                           <span className="material-symbols-outlined text-sm">delete</span>
                         </button>
                       </div>
@@ -397,13 +413,14 @@ export default function ConfiguracionPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           </Card>
         </section>
 
         {/* SECCIÓN: CATEGORÍAS DE PRODUCTO */}
         <section className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-orange-500/10 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm">
                 <span className="material-symbols-outlined text-2xl">category</span>
@@ -419,24 +436,31 @@ export default function ConfiguracionPage() {
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {categories.map(cat => (
-              <Card key={cat.id} className="p-4 border-white/50 bg-white/40 backdrop-blur-md group hover:bg-white/80 transition-all border flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-sm text-on-surface">{cat.display_name}</h3>
-                  <p className="text-[9px] text-on-surface-variant font-mono uppercase italic">{cat.name}</p>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setEditingItem(cat); setActiveModal('category') }} className="p-1.5 hover:bg-primary/10 text-primary rounded-lg">
-                    <span className="material-symbols-outlined text-sm">edit</span>
-                  </button>
-                  <button onClick={() => handleDelete('product_categories', cat.id)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg">
-                    <span className="material-symbols-outlined text-sm">delete</span>
-                  </button>
-                </div>
-              </Card>
-            ))}
-          </div>
+          <Card className="overflow-hidden border-outline-variant/30 shadow-subtle bg-white/60">
+            <div className="h-[400px] overflow-y-auto p-5 custom-scrollbar">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {categories.map(cat => (
+                  <Card key={cat.id} className={cn(
+                    "p-4 border-white/50 bg-white/40 backdrop-blur-md group hover:bg-white/80 transition-all border flex items-center justify-between",
+                    !cat.is_active && "opacity-60 grayscale-[0.4]"
+                  )}>
+                    <div>
+                      <h3 className="font-bold text-sm text-on-surface">{capitalize(cat.display_name)}</h3>
+                      <p className="text-[9px] text-on-surface-variant font-mono uppercase italic">{cat.name}</p>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => { setEditingItem(cat); setActiveModal('category') }} className="p-1.5 hover:bg-primary/10 text-primary rounded-lg">
+                        <span className="material-symbols-outlined text-sm">edit</span>
+                      </button>
+                      <button onClick={() => handleDelete('product_categories', cat.id, false)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg">
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </Card>
         </section>
       </div>
 
@@ -445,7 +469,7 @@ export default function ConfiguracionPage() {
         
         {/* SECCIÓN: SOFT LIMITS */}
         <section className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-600 shadow-sm">
                 <span className="material-symbols-outlined text-2xl">speed</span>
@@ -462,26 +486,30 @@ export default function ConfiguracionPage() {
           </div>
 
           <Card className="overflow-hidden border-outline-variant/30 shadow-subtle bg-white/60">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-surface-container-lowest">
-                <tr>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Límite Normal</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Límite Extendido</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Horario Ext.</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right"></th>
-                </tr>
-              </thead>
+            <div className="h-[400px] overflow-y-auto p-0 custom-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-surface-container-lowest sticky top-0 z-10">
+                  <tr>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Límite Normal</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Límite Extendido</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Horario Ext.</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right"></th>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-outline-variant/10">
                 {limits.map(limit => (
-                  <tr key={limit.id} className="hover:bg-surface-container-lowest transition-colors group">
+                  <tr key={limit.id} className={cn(
+                    "hover:bg-surface-container-lowest transition-colors group",
+                    !limit.is_active && "opacity-60 grayscale-[0.4]"
+                  )}>
                     <td className="px-6 py-4">
                       <span className={cn(
                         "px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider",
                         limit.environment?.name === 'Secos' ? "bg-amber-100 text-amber-700" : 
                         limit.environment?.name === 'Fríos' ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
                       )}>
-                        {limit.environment?.display_name}
+                        {capitalize(limit.environment?.display_name)}
                       </span>
                     </td>
                     <td className="px-6 py-4"><span className="text-lg font-black">{limit.normal_box_limit.toLocaleString()}</span> <span className="text-[10px] font-bold text-on-surface-variant uppercase">cajas</span></td>
@@ -492,15 +520,21 @@ export default function ConfiguracionPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => { setEditingItem(limit); setActiveModal('limit') }} className="p-2 hover:bg-primary/10 text-primary rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="material-symbols-outlined text-[20px]">edit</span>
-                      </button>
+                      <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditingItem(limit); setActiveModal('limit') }} className="p-2 hover:bg-primary/10 text-primary rounded-lg">
+                          <span className="material-symbols-outlined text-[20px]">edit</span>
+                        </button>
+                        <button onClick={() => handleDelete('daily_capacity_limits', limit.id, false)} className="p-2 hover:bg-error-container hover:text-error rounded-lg">
+                          <span className="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </Card>
+          </div>
+        </Card>
         </section>
 
         {/* SECCIÓN: REGLAS DE SCHEDULING (EL MOTOR) */}
@@ -515,26 +549,27 @@ export default function ConfiguracionPage() {
                 <p className="text-xs text-on-surface-variant font-bold uppercase tracking-widest">Lógica en Cascada</p>
               </div>
             </div>
-            <Button onClick={() => { setEditingItem({ priority: rules.length * 10 }); setActiveModal('rule') }} className="gap-2 shrink-0 bg-rose-600 hover:bg-rose-700 text-white shadow-lg">
+            <Button onClick={() => { setEditingItem({ priority: rules.length * 10 }); setActiveModal('rule') }} variant="secondary" className="gap-2 shrink-0">
               <span className="material-symbols-outlined text-[18px]">bolt</span>
               Nueva Regla
             </Button>
           </div>
 
           <Card className="overflow-hidden border-outline-variant/30 shadow-subtle bg-white/60">
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-surface-container-lowest">
-                <tr>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">P</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Nombre</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Vehículo</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Categoría</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Rango Cajas</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Duración</th>
-                  <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right"></th>
-                </tr>
-              </thead>
+            <div className="h-[500px] overflow-y-auto p-0 custom-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-surface-container-lowest sticky top-0 z-10 transition-colors">
+                  <tr>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">P</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Nombre</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Vehículo</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Categoría</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Rango Cajas</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Duración</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right"></th>
+                  </tr>
+                </thead>
               <tbody className="divide-y divide-outline-variant/10">
                 {rules.map(rule => (
                   <tr key={rule.id} className="hover:bg-surface-container-lowest transition-colors group">
@@ -551,10 +586,10 @@ export default function ConfiguracionPage() {
                         );
                       })()}
                     </td>
-                    <td className="px-6 py-4 font-bold text-sm text-on-surface">{rule.name}</td>
-                    <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{rule.environment?.display_name || 'Todos'}</td>
-                    <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{rule.vehicle_type?.name || 'Todos'}</td>
-                    <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{rule.category?.display_name || 'Todas'}</td>
+                    <td className="px-6 py-4 font-bold text-sm text-on-surface">{capitalize(rule.name)}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{capitalize(rule.environment?.display_name) || 'Todos'}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{capitalize(rule.vehicle_type?.name) || 'Todos'}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{capitalize(rule.category?.display_name) || 'Todas'}</td>
                     <td className="px-6 py-4 font-mono font-bold text-xs">{rule.min_boxes} — {rule.max_boxes || '∞'}</td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
@@ -577,7 +612,7 @@ export default function ConfiguracionPage() {
                         <button onClick={() => { setEditingItem(rule); setActiveModal('rule') }} className="p-2 hover:bg-primary/10 text-primary rounded-lg">
                           <span className="material-symbols-outlined text-[20px]">edit</span>
                         </button>
-                        <button onClick={() => handleDelete('scheduling_rules', rule.id, false)} className="p-2 hover:bg-error-container hover:text-error rounded-lg">
+                        <button onClick={() => handleDelete('scheduling_rules', rule.id, false)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg">
                           <span className="material-symbols-outlined text-[20px]">delete</span>
                         </button>
                       </div>
@@ -586,7 +621,8 @@ export default function ConfiguracionPage() {
                 ))}
               </tbody>
             </table>
-          </Card>
+          </div>
+        </Card>
         </section>
       </div>
 
@@ -968,6 +1004,16 @@ export default function ConfiguracionPage() {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-on-surface-variant">Límite Extendido</label>
                   <Input type="number" value={editingItem.extended_box_limit || ''} onChange={e => setEditingItem({...editingItem, extended_box_limit: Number(e.target.value)})} required />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-on-surface-variant">Inicio Extendido</label>
+                  <Input type="time" value={editingItem.extended_start_time || ''} onChange={e => setEditingItem({...editingItem, extended_start_time: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-on-surface-variant">Fin Extendido</label>
+                  <Input type="time" value={editingItem.extended_end_time || ''} onChange={e => setEditingItem({...editingItem, extended_end_time: e.target.value})} />
                 </div>
               </div>
               <div className="flex gap-4 pt-4">

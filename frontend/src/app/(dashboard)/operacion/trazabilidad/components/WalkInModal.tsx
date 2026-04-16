@@ -4,6 +4,7 @@ import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
+import { toTitleCase } from "@/lib/utils"
 import { VehicleType } from "@/types"
 
 export function WalkInModal({ 
@@ -114,13 +115,13 @@ export function WalkInModal({
 
           <div className="grid grid-cols-2 gap-4">
             <Input 
-              label="Empresa Transportadora" 
+              label="Empresa Transportadora (Obligatorio)" 
               required 
               value={formData.company_name}
               onChange={e => setFormData({...formData, company_name: e.target.value})}
             />
             <Input 
-              label="Placa del Vehículo" 
+              label="Placa del Vehículo (Obligatorio)" 
               required
               className="uppercase"
               value={formData.license_plate}
@@ -128,14 +129,14 @@ export function WalkInModal({
             />
             
             <Input 
-              label="Nombre Conductor" 
+              label="Nombre Conductor (Obligatorio)" 
               required 
               className="capitalize"
               value={formData.driver_name}
               onChange={e => setFormData({...formData, driver_name: e.target.value})}
             />
             <Input 
-              label="Teléfono Conductor" 
+              label="Teléfono Conductor (Obligatorio)" 
               type="number"
               required 
               value={formData.driver_phone}
@@ -150,7 +151,7 @@ export function WalkInModal({
 
             <div className="flex flex-col gap-1.5 col-span-2">
               <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider ml-1">
-                Tipo de Vehículo
+                Tipo de Vehículo (Obligatorio)
               </label>
               <select 
                 title="Seleccionar tipo de vehículo"
@@ -161,7 +162,7 @@ export function WalkInModal({
               >
                 <option value="">Seleccione un tipo</option>
                 {vehicleTypes.map(v => (
-                  <option key={v.id} value={v.id.toString()}>{v.name}</option>
+                  <option key={v.id} value={v.id.toString()}>{toTitleCase(v.name)}</option>
                 ))}
               </select>
             </div>
@@ -172,8 +173,9 @@ export function WalkInModal({
               onChange={e => setFormData({...formData, po_number: e.target.value})}
             />
             <Input 
-              label="Total Cajas" 
+              label="Total Cajas (Obligatorio)" 
               type="number"
+              required
               value={formData.box_count}
               onChange={e => setFormData({...formData, box_count: e.target.value})}
             />

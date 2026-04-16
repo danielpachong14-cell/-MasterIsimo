@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Sidebar } from "@/components/ui/Sidebar"
 import { useProfile } from "@/hooks/useProfile"
+import { GlobalSearch } from "@/components/features/GlobalSearch"
 
 export default function DashboardLayout({
   children,
@@ -29,12 +30,7 @@ export default function DashboardLayout({
       <div className="flex-1 flex flex-col min-w-0">
         {/* TopNav / Header */}
         <header className="h-20 bg-white/50 backdrop-blur-md border-b border-surface-container/50 flex items-center justify-between px-10 relative z-20">
-          <div className="flex items-center gap-4">
-            <div className="p-2 bg-surface-container rounded-lg">
-              <span className="material-symbols-outlined text-on-surface-variant">search</span>
-            </div>
-            <p className="text-sm font-medium text-on-surface-variant">Buscando en patio...</p>
-          </div>
+          <GlobalSearch />
 
           <Link href="/perfil" className="flex items-center gap-6 hover:bg-surface-container/30 p-2 px-4 rounded-2xl transition-all group">
             <div className="flex flex-col items-end">

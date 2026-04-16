@@ -120,27 +120,63 @@ export function KanbanCard({ appointment, onClick }: KanbanCardProps) {
         {/* Trazabilidad & KPIs Extendidos */}
         {(appointment.arrival_time || appointment.punctuality_status || appointment.force_reason) && (
           <div className="flex flex-col gap-1.5 pt-2 border-t border-surface-container pl-2 bg-surface-container-lowest/50 -mx-5 -mb-5 p-3 rounded-b-xl">
-            {/* Indicadores de Tiempos Vitales */}
+            {/* Indicadores de Tiempos Vitales Dinámicos */}
             <div className="flex items-center justify-between">
-              {appointment.arrival_time && (
-                <div className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[12px] opacity-40 text-primary">timer</span>
-                  <span className="text-[9px] font-black uppercase text-primary tracking-widest">
-                    Espera: {appointment.start_unloading_time 
-                      ? `${Math.round((new Date(appointment.start_unloading_time).getTime() - new Date(appointment.arrival_time).getTime()) / 60000)}m` 
-                      : `${Math.round((new Date().getTime() - new Date(appointment.arrival_time).getTime()) / 60000)}m`
-                    }
-                  </span>
-                </div>
-              )}
-              {appointment.punctuality_status && appointment.punctuality_status !== 'N/A (Sin Cita)' && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {appointment.arrival_time && (
+                  <div className={cn(
+                    "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black tracking-tighter",
+                    appointment.status === 'EN_PORTERIA' ? "bg-amber-100 text-amber-700 animate-pulse border border-amber-200" : "bg-surface-container text-on-surface-variant/70"
+                  )}>
+                    <span className="opacity-60">P</span>
+                    <span>
+                      {appointment.docking_time 
+                        ? `${Math.round((new Date(appointment.docking_time).getTime() - new Date(appointment.arrival_time).getTime()) / 60000)}m` 
+                        : `${Math.round((new Date().getTime() - new Date(appointment.arrival_time).getTime()) / 60000)}m`
+                      }
+                    </span>
+                  </div>
+                )}
+
+                {appointment.docking_time && (
+                  <div className={cn(
+                    "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black tracking-tighter",
+                    appointment.status === 'EN_MUELLE' ? "bg-blue-100 text-blue-700 animate-pulse border border-blue-200" : "bg-surface-container text-on-surface-variant/70"
+                  )}>
+                    <span className="opacity-60">M</span>
+                    <span>
+                      {appointment.start_unloading_time 
+                        ? `${Math.round((new Date(appointment.start_unloading_time).getTime() - new Date(appointment.docking_time).getTime()) / 60000)}m` 
+                        : `${Math.round((new Date().getTime() - new Date(appointment.docking_time).getTime()) / 60000)}m`
+                      }
+                    </span>
+                  </div>
+                )}
+
+                {appointment.start_unloading_time && (
+                  <div className={cn(
+                    "flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black tracking-tighter",
+                    appointment.status === 'DESCARGANDO' ? "bg-indigo-100 text-indigo-700 animate-pulse border border-indigo-200" : "bg-surface-container text-on-surface-variant/70"
+                  )}>
+                    <span className="opacity-60">D</span>
+                    <span>
+                      {appointment.end_unloading_time 
+                        ? `${Math.round((new Date(appointment.end_unloading_time).getTime() - new Date(appointment.start_unloading_time).getTime()) / 60000)}m` 
+                        : `${Math.round((new Date().getTime() - new Date(appointment.start_unloading_time).getTime()) / 60000)}m`
+                      }
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {appointment.punctuality_status && appointment.punctuality_status !== 'N/A (Sin Cita)' && appointment.status === 'EN_PORTERIA' && (
                 <span className={cn(
-                  "text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-widest",
+                  "text-[8px] font-black uppercase px-1 py-0.5 rounded tracking-widest",
                   appointment.punctuality_status === 'TARDE' ? "bg-red-100 text-red-700" :
                   appointment.punctuality_status === 'A_TIEMPO' ? "bg-green-100 text-green-700" :
                   "bg-blue-100 text-blue-700"
                 )}>
-                  {appointment.punctuality_status.replace('_', ' ')}
+                  {appointment.punctuality_status === 'A_TIEMPO' ? 'OK' : appointment.punctuality_status}
                 </span>
               )}
             </div>

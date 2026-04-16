@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Card } from "@/components/ui/Card"
 import { calculateDuration, getAvailableSlots } from "@/lib/services/scheduling"
+import { capitalize, normalizeObjectForStorage } from "@/lib/utils"
 
 interface VehicleType {
   id: number
@@ -110,18 +111,18 @@ export default function SupplierRegistrationPage() {
       const endTime = calculateEndTime(formData.scheduledTime, durationInfo.real)
 
       // 1. Reservar cita con asignación automática de muelle (transaccional, anti-colisión)
-      const { data: appointmentId, error: rpcError } = await supabase.rpc('book_appointment_transactional', {
-        p_company_name: formData.companyName,
+      const { data: appointmentId, error: rpcError } = await supabase.rpc('book_appointment_transactional', normalizeObjectForStorage({
+        p_company_name: formData.companyName.trim(),
         p_vehicle_type_id: parseInt(formData.vehicleTypeId),
         p_vehicle_type: vehicles.find(v => v.id.toString() === formData.vehicleTypeId)?.name || 'N/A',
         p_scheduled_date: formData.scheduledDate,
         p_scheduled_time: formData.scheduledTime,
         p_estimated_duration: durationInfo.real,
         p_scheduled_end_time: endTime,
-        p_driver_name: formData.driverName,
-        p_driver_phone: formData.driverPhone,
-        p_license_plate: formData.licensePlate,
-      })
+        p_driver_name: formData.driverName.trim(),
+        p_driver_phone: formData.driverPhone.trim(),
+        p_license_plate: formData.licensePlate.trim().toUpperCase(),
+      }))
 
       if (rpcError) {
         if (rpcError.message?.includes('NO_DOCK_AVAILABLE')) {
@@ -134,9 +135,9 @@ export default function SupplierRegistrationPage() {
       }
 
       // 2. Insertar todas las OCs asociadas al appointment
-      const ordersToInsert = purchaseOrders.map(po => ({
+      const ordersToInsert = purchaseOrders.map(po => normalizeObjectForStorage({
         appointment_id: appointmentId,
-        po_number: po.poNumber,
+        po_number: po.poNumber.trim(),
         box_count: parseInt(po.boxCount)
       }))
 
@@ -455,7 +456,7 @@ export default function SupplierRegistrationPage() {
                    <span className="material-symbols-outlined text-[40px] text-tertiary">check_circle</span>
                  </div>
                  <div>
-                   <h2 className="text-3xl font-black font-headline text-on-surface">Vehículo Agendado Exitosamente</h2>
+                   <h2 className="text-3xl font-black font-headline text-on-surface">{capitalize(formData.companyName)} Agendado Exitosamente</h2>
                    <p className="text-primary/60 font-medium mt-2 max-w-sm mx-auto">Tu maniobra ha sido aprobada e insertada en el tablón CEDI.</p>
                  </div>
                  

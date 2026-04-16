@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useForm, useFieldArray, SubmitHandler, Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { cn } from "@/lib/utils"
+import { cn, capitalize, normalizeObjectForStorage, toTitleCase } from "@/lib/utils"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
@@ -37,11 +37,11 @@ interface POWarning {
 const appointmentSchema = z.object({
   company_name: z.string().min(3, "Mínimo 3 caracteres"),
   vehicle_type_id: z.coerce.number().min(1, "Tipo de vehículo requerido"),
-  environment_id: z.coerce.number().min(1, "Ambiente requerido"),
-  category_id: z.coerce.number().min(1, "Categoría requerida"),
+  environment_id: z.preprocess((v) => (v === "" ? null : v), z.coerce.number().optional().nullable()),
+  category_id: z.preprocess((v) => (v === "" ? null : v), z.coerce.number().optional().nullable()),
   license_plate: z.string().min(3, "Placa requerida"),
   driver_name: z.string().min(5, "Nombre completo"),
-  driver_id_card: z.string().min(5, "Mínimo 5 dígitos").max(20, "Máximo 20 dígitos").regex(/^\d+$/, "Solo números permitidos"),
+  driver_id_card: z.string().max(20, "Máximo 20 dígitos").regex(/^\d+$/, "Solo números permitidos").or(z.literal("")).optional(),
   driver_phone: z.string().length(10, "Exactamente 10 números").regex(/^\d+$/, "Solo números permitidos"),
   purchase_orders: z.array(
     z.object({
@@ -97,8 +97,8 @@ export function SupplierForm() {
       scheduled_date: new Date().toISOString().split('T')[0],
       purchase_orders: [{ po_number: "", box_count: 0 }],
       vehicle_type_id: 0,
-      environment_id: 0,
-      category_id: 0,
+      environment_id: null,
+      category_id: null,
       driver_id_card: "",
       driver_phone: ""
     }
@@ -141,9 +141,9 @@ export function SupplierForm() {
 
       const result = await runSchedulingEngine({
         date: watchDate,
-        environmentId: Number(watchEnvId),
+        environmentId: watchEnvId ? Number(watchEnvId) : null,
         vehicleTypeId: Number(watchVehicleTypeId) || null,
-        categoryId: Number(watchCategoryId) || null,
+        categoryId: watchCategoryId ? Number(watchCategoryId) : null,
         totalBoxes,
       })
 
@@ -243,11 +243,12 @@ export function SupplierForm() {
     
     try {
       // Lowercase transformation for all business data
-      const company_name = data.company_name.toLowerCase()
-      const license_plate = data.license_plate.toLowerCase()
-      const driver_name = data.driver_name.toLowerCase()
-      const driver_id_card = data.driver_id_card.toLowerCase()
-      const driver_phone = data.driver_phone.toLowerCase()
+      const company_name = data.company_name.trim().toLowerCase()
+      const license_plate = data.license_plate.trim().toLowerCase()
+      const driver_name = data.driver_name.trim().toLowerCase()
+      // Cédula: solo números, no necesita lowercase y es opcional
+      const driver_id_card = data.driver_id_card?.trim() || ""
+      const driver_phone = data.driver_phone.trim()
 
       // Calculate end time
       const [h, m] = data.scheduled_time.split(':').map(Number)
@@ -487,7 +488,7 @@ export function SupplierForm() {
           {step === 1 && (
             <div className="grid gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <Input 
-                label="Empresa / Proveedor" 
+                label="Empresa / Proveedor (Obligatorio)" 
                 placeholder="Nombre de la empresa" 
                 icon="factory"
                 error={errors.company_name?.message}
@@ -495,7 +496,7 @@ export function SupplierForm() {
               />
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Ambiente</label>
+                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Ambiente (Opcional)</label>
                   <select
                     className="flex w-full rounded-xl border border-surface-container bg-surface-container-low/10 text-on-surface p-4 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 h-[56px] appearance-none"
                     {...register("environment_id")}
@@ -503,13 +504,13 @@ export function SupplierForm() {
                   >
                     <option value="">-- Seleccionar --</option>
                     {environments.map(e => (
-                      <option key={e.id} value={e.id}>{e.display_name}</option>
+                      <option key={e.id} value={e.id}>{toTitleCase(e.display_name)}</option>
                     ))}
                   </select>
                   {errors.environment_id && <p className="text-xs text-error mt-1">{errors.environment_id.message}</p>}
                 </div>
                 <div>
-                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Categoría de Producto</label>
+                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Categoría de Producto (Opcional)</label>
                   <select
                     className="flex w-full rounded-xl border border-surface-container bg-surface-container-low/10 text-on-surface p-4 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 h-[56px] appearance-none"
                     {...register("category_id")}
@@ -517,7 +518,7 @@ export function SupplierForm() {
                   >
                     <option value="">-- Seleccionar --</option>
                     {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.display_name}</option>
+                      <option key={c.id} value={c.id}>{toTitleCase(c.display_name)}</option>
                     ))}
                   </select>
                   {errors.category_id && <p className="text-xs text-error mt-1">{errors.category_id.message}</p>}
@@ -525,7 +526,7 @@ export function SupplierForm() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Tipo de Vehículo</label>
+                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Tipo de Vehículo (Obligatorio)</label>
                   <select
                     className="flex w-full rounded-xl border border-surface-container bg-surface-container-low/10 text-on-surface p-4 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 h-[56px] appearance-none"
                     {...register("vehicle_type_id")}
@@ -533,13 +534,13 @@ export function SupplierForm() {
                   >
                     <option value="">-- Seleccionar --</option>
                     {vehicleTypes.map(v => (
-                      <option key={v.id} value={v.id}>{v.name}</option>
+                      <option key={v.id} value={v.id}>{toTitleCase(v.name)}</option>
                     ))}
                   </select>
                   {errors.vehicle_type_id && <p className="text-xs text-error mt-1">{errors.vehicle_type_id.message}</p>}
                 </div>
                 <Input 
-                  label="Placa de Vehículo" 
+                  label="Placa de Vehículo (Obligatorio)" 
                   placeholder="ABC-123" 
                   icon="format_list_numbered"
                   error={errors.license_plate?.message}
@@ -547,7 +548,7 @@ export function SupplierForm() {
                 />
               </div>
               <Input 
-                label="Nombre del Conductor" 
+                label="Nombre del Conductor (Obligatorio)" 
                 placeholder="Nombre completo" 
                 icon="person_pin_circle"
                 error={errors.driver_name?.message}
@@ -555,14 +556,14 @@ export function SupplierForm() {
               />
               <div className="grid grid-cols-2 gap-4">
                 <Input 
-                  label="Cédula del Conductor" 
+                  label="Cédula del Conductor (Opcional)" 
                   placeholder="Número de identificación" 
                   icon="badge"
                   error={errors.driver_id_card?.message}
                   {...register("driver_id_card")}
                 />
                 <Input 
-                  label="Teléfono del Conductor" 
+                  label="Teléfono del Conductor (Obligatorio)" 
                   placeholder="300 000 0000" 
                   icon="phone_iphone"
                   error={errors.driver_phone?.message}

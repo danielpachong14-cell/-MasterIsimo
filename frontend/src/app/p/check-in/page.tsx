@@ -4,6 +4,7 @@ import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
+import { capitalize, normalizeObjectForStorage } from "@/lib/utils"
 import type { Appointment } from "@/types"
 
 type Step = 'SEARCH' | 'FOUND' | 'NOT_FOUND' | 'SUCCESS' | 'ERROR'
@@ -96,13 +97,13 @@ export default function CheckInPage() {
 
     setLoading(true)
     try {
-      const { data, error } = await supabase.rpc('process_arrival_check_in', {
+      const { data, error } = await supabase.rpc('process_arrival_check_in', normalizeObjectForStorage({
         p_appointment_id: selectedAppt.id,
         p_driver_id_card: driverId.trim(),
         p_driver_name: driverName.trim(),
         p_driver_phone: driverPhone.trim(),
         p_license_plate: licensePlate.trim().toUpperCase()
-      })
+      }))
 
       if (error) throw error
       
@@ -143,7 +144,7 @@ export default function CheckInPage() {
 
     setLoading(true)
     try {
-      const { error } = await supabase.rpc('register_walk_in_check_in', {
+      const { error } = await supabase.rpc('register_walk_in_check_in', normalizeObjectForStorage({
         p_company_name: wiCompany.trim(),
         p_license_plate: licensePlate.trim().toUpperCase(),
         p_driver_name: driverName.trim(),
@@ -151,7 +152,7 @@ export default function CheckInPage() {
         p_driver_phone: driverPhone.trim(),
         p_po_number: wiPoNumber.trim(),
         p_box_count: wiBoxes.trim()
-      })
+      }))
 
       if (error) throw error
       
@@ -216,7 +217,7 @@ export default function CheckInPage() {
                 className="w-full p-6 border-2 border-surface-container rounded-3xl text-left hover:border-primary hover:bg-primary/5 focus:ring-4 focus:ring-primary/10 transition-all group"
               >
                 <div className="flex justify-between items-start mb-2">
-                  <div className="font-black text-primary text-lg leading-tight uppercase">{a.company_name}</div>
+                  <div className="font-black text-primary text-lg leading-tight uppercase">{capitalize(a.company_name)}</div>
                   <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-tighter">
                     {a.scheduled_time?.substring(0,5)}
                   </span>
@@ -244,7 +245,7 @@ export default function CheckInPage() {
           <div className="flex items-center justify-between pb-6 border-b border-surface-container">
             <div className="space-y-1">
               <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase tracking-widest border border-green-100">Cita Confirmada</span>
-              <h2 className="text-2xl font-black font-headline text-on-surface truncate max-w-[280px]">{selectedAppt.company_name}</h2>
+              <h2 className="text-2xl font-black font-headline text-on-surface truncate max-w-[280px]">{capitalize(selectedAppt.company_name)}</h2>
             </div>
             <div className="text-right">
               <p className="text-xs font-bold text-on-surface-variant uppercase tracking-tighter">Programada</p>
@@ -256,12 +257,12 @@ export default function CheckInPage() {
             <p className="text-[10px] font-black text-center text-on-surface-variant uppercase tracking-[0.2em] opacity-60">Datos del ingreso</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Input label="Placa del Vehículo" className="uppercase font-black text-lg h-14" value={licensePlate} onChange={e => setLicensePlate(e.target.value)} required />
+                <Input label="Placa del Vehículo (Obligatorio)" className="uppercase font-black text-lg h-14" value={licensePlate} onChange={e => setLicensePlate(e.target.value)} required />
               </div>
               <Input label="Cédula Conductor (Opcional)" type="number" className="font-bold" value={driverId} onChange={e => setDriverId(e.target.value)} />
-              <Input label="Celular" type="number" className="font-bold" value={driverPhone} onChange={e => setDriverPhone(e.target.value)} required />
+              <Input label="Celular (Obligatorio)" type="number" className="font-bold" value={driverPhone} onChange={e => setDriverPhone(e.target.value)} required />
               <div className="col-span-2">
-                <Input label="Nombre del Conductor" className="font-bold h-14 capitalize" value={driverName} onChange={e => setDriverName(e.target.value)} required />
+                <Input label="Nombre del Conductor (Obligatorio)" className="font-bold h-14 capitalize" value={driverName} onChange={e => setDriverName(e.target.value)} required />
               </div>
             </div>
           </div>
@@ -288,18 +289,18 @@ export default function CheckInPage() {
 
           <div className="grid grid-cols-2 gap-4 bg-red-50/30 p-6 rounded-[2rem] border border-red-100">
             <div className="col-span-2">
-              <Input label="Empresa de Transporte / Origen" required value={wiCompany} onChange={e => setWiCompany(e.target.value)} className="bg-white" />
+              <Input label="Empresa de Transporte / Origen (Obligatorio)" required value={wiCompany} onChange={e => setWiCompany(e.target.value)} className="bg-white" />
             </div>
-            <Input label="Placa" required className="uppercase font-black bg-white" value={licensePlate} onChange={e => setLicensePlate(e.target.value)} />
+            <Input label="Placa (Obligatorio)" required className="uppercase font-black bg-white" value={licensePlate} onChange={e => setLicensePlate(e.target.value)} />
             <Input label="Cédula (Opcional)" type="number" className="bg-white" value={driverId} onChange={e => setDriverId(e.target.value)} />
             <div className="col-span-2">
-              <Input label="Nombre del Conductor" required className="capitalize bg-white" value={driverName} onChange={e => setDriverName(e.target.value)} />
+              <Input label="Nombre del Conductor (Obligatorio)" required className="capitalize bg-white" value={driverName} onChange={e => setDriverName(e.target.value)} />
             </div>
             <div className="col-span-2">
-              <Input label="Celular" required type="number" className="bg-white" value={driverPhone} onChange={e => setDriverPhone(e.target.value)} />
+              <Input label="Celular (Obligatorio)" required type="number" className="bg-white" value={driverPhone} onChange={e => setDriverPhone(e.target.value)} />
             </div>
-            <Input label="No. OC" required value={wiPoNumber} onChange={e => setWiPoNumber(e.target.value)} className="bg-white" />
-            <Input label="Cajas (Aprox.)" type="number" value={wiBoxes} onChange={e => setWiBoxes(e.target.value)} className="bg-white" />
+            <Input label="No. OC (Obligatorio)" required value={wiPoNumber} onChange={e => setWiPoNumber(e.target.value)} className="bg-white" />
+            <Input label="Cajas (Aprox.) (Obligatorio)" type="number" required value={wiBoxes} onChange={e => setWiBoxes(e.target.value)} className="bg-white" />
           </div>
 
           <div className="flex gap-4 pt-2">
@@ -340,7 +341,7 @@ export default function CheckInPage() {
               </div>
               <div>
                 <p className="text-[9px] font-black text-on-surface-variant/60 uppercase">Conductor</p>
-                <p className="font-bold text-on-surface leading-tight truncate">{driverName.split(' ')[0]}</p>
+                <p className="font-bold text-on-surface leading-tight truncate">{capitalize(driverName.split(' ')[0])}</p>
               </div>
             </div>
             <p className="text-xs font-bold text-on-surface-variant mt-4 text-center bg-white/50 p-3 rounded-2xl italic leading-relaxed">

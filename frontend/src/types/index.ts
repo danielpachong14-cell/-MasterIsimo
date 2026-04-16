@@ -38,6 +38,7 @@ export interface Appointment {
   // Auto Check-in & KPI tracking
   appointment_number?: string | null;
   arrival_time?: string | null;
+  docking_time?: string | null;
   punctuality_status?: string | null;
   driver_id_card?: string | null;
   start_unloading_time?: string | null;
@@ -56,6 +57,14 @@ export interface AppointmentFilters {
   licensePlate?: string | null;
   companyName?: string | null;
   isWalkIn?: boolean | null;
+}
+
+export interface SchedulingRequest {
+  date: string
+  environmentId?: number | null
+  vehicleTypeId: number | null
+  categoryId: number | null
+  totalBoxes: number
 }
 
 export interface PaginatedResult<T> {
