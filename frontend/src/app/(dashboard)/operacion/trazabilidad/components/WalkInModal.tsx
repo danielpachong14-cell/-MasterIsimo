@@ -42,6 +42,12 @@ export function WalkInModal({
       return
     }
 
+    const sanitizedPhone = formData.driver_phone.replace(/\D/g, '')
+    if (sanitizedPhone.length !== 10) {
+      alert("El número de celular debe tener exactamente 10 dígitos numéricos.")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -64,6 +70,7 @@ export function WalkInModal({
           status: 'EN_PORTERIA', // Ingresa directo a portería
           arrival_time: new Date().toISOString(), // Marca de tiempo inicial para patio
           is_walk_in: true,
+          is_express: true,
           scheduled_date: new Date().toISOString().split('T')[0], // Se asigna la fecha actual
           scheduled_time: new Date().toTimeString().split(' ')[0], // y hora actual (o requeriría logica extra, pero as is walk-in it doesn't matter much)
           // po_number is optional at top level or we can save it to appointment_purchase_orders
@@ -125,8 +132,9 @@ export function WalkInModal({
               label="Placa del Vehículo (Obligatorio)" 
               required
               className="uppercase"
+              maxLength={6}
               value={formData.license_plate}
-              onChange={e => setFormData({...formData, license_plate: e.target.value.toUpperCase()})}
+              onChange={e => setFormData({...formData, license_plate: e.target.value.toUpperCase().substring(0, 6)})}
             />
             
             <Input 
@@ -138,16 +146,17 @@ export function WalkInModal({
             />
             <Input 
               label="Teléfono Conductor (Obligatorio)" 
-              type="number"
+              type="text"
               required 
+              maxLength={10}
               value={formData.driver_phone}
-              onChange={e => setFormData({...formData, driver_phone: e.target.value})}
+              onChange={e => setFormData({...formData, driver_phone: e.target.value.replace(/\D/g, '').substring(0, 10)})}
             />
             <Input 
               label="Cédula Conductor (Opcional)" 
-              type="number"
+              type="text"
               value={formData.driver_id_card}
-              onChange={e => setFormData({...formData, driver_id_card: e.target.value})}
+              onChange={e => setFormData({...formData, driver_id_card: e.target.value.replace(/\D/g, '')})}
             />
 
             <div className="flex flex-col gap-1.5 col-span-2">

@@ -47,6 +47,19 @@ export function EditAppointmentModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    const sanitizedPlate = formData.license_plate.replace(/[^A-Za-z0-9]/g, '')
+    if (sanitizedPlate.length !== 6) {
+      alert("La placa debe tener exactamente 6 caracteres y no contener guiones.")
+      return
+    }
+
+    const sanitizedPhone = formData.driver_phone.replace(/\D/g, '')
+    if (sanitizedPhone.length !== 10) {
+      alert("El número de celular debe tener exactamente 10 dígitos numéricos.")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -136,8 +149,9 @@ export function EditAppointmentModal({
               label="Placa del Vehículo" 
               required
               className="uppercase"
+              maxLength={6}
               value={formData.license_plate}
-              onChange={e => setFormData({...formData, license_plate: e.target.value.toUpperCase()})}
+              onChange={e => setFormData({...formData, license_plate: e.target.value.toUpperCase().substring(0, 6)})}
             />
             
             <Input 
@@ -148,10 +162,11 @@ export function EditAppointmentModal({
             />
             <Input 
               label="Teléfono Conductor" 
-              type="tel"
+              type="text"
               required 
+              maxLength={10}
               value={formData.driver_phone}
-              onChange={e => setFormData({...formData, driver_phone: e.target.value})}
+              onChange={e => setFormData({...formData, driver_phone: e.target.value.replace(/\D/g, '').substring(0, 10)})}
             />
 
             <div className="flex flex-col gap-1.5 col-span-2">

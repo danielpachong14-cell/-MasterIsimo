@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { parseTime, formatTimeFromMinutes, calculateDuration } from "./scheduling"
 import type {
   CapacityCheckResult,
@@ -11,15 +11,19 @@ import type {
 
 /**
  * Verifica la capacidad diaria para un ambiente en una fecha dada.
+ *
+ * Recibe el cliente de Supabase como parámetro para garantizar que este motor
+ * SIEMPRE se ejecute en el servidor (Server Action / Route Handler), nunca
+ * exponiendo lógica de negocio al navegador.
+ *
  * NUNCA bloquea la creación — solo retorna flags informativos.
  */
 export async function checkDailyCapacity(
+  supabase: SupabaseClient,
   date: string,
   environmentId: number | null,
   newBoxes: number
 ): Promise<CapacityCheckResult> {
-  const supabase = createClient()
-
   // Obtener límite configurado para el ambiente
   const { data: limitRow, error: limitError } = await supabase
     .from("daily_capacity_limits")
@@ -83,7 +87,7 @@ export async function checkDailyCapacity(
 /**
  * Busca la regla de scheduling más específica que aplique al cruce dado.
  * Evalúa en orden de prioridad (menor número = mayor prioridad).
- * 
+ *
  * Cascada de resolución:
  * 1. Match exacto: ambiente + vehículo + categoría + rango cajas
  * 2. Match parcial: ambiente + categoría (vehículo NULL)
@@ -91,13 +95,11 @@ export async function checkDailyCapacity(
  * 4. Match genérico: solo ambiente + rango cajas
  */
 export async function resolveSchedulingRule(
+  supabase: SupabaseClient,
   environmentId: number | null,
   vehicleTypeId: number | null,
-  categoryId: number | null,
   totalBoxes: number
 ): Promise<SchedulingRule | null> {
-  const supabase = createClient()
-
   let query = supabase
     .from("scheduling_rules")
     .select("*")
@@ -108,26 +110,20 @@ export async function resolveSchedulingRule(
   if (environmentId) {
     query = query.eq("environment_id", environmentId)
   }
-  
+
   const { data: rules } = await query
 
   if (!rules || rules.length === 0) return null
 
-  // Filtrar por max_boxes y compatibilidad de vehículo/categoría
+  // Filtrar por max_boxes y compatibilidad de vehículo (sin categoría).
+  // La cascada resuelve ahora exclusivamente por: ambiente → vehículo → rango de cajas.
   const matchingRules = rules.filter((rule) => {
-    // Verificar rango de cajas
     if (rule.max_boxes !== null && totalBoxes > rule.max_boxes) return false
-
-    // Verificar categoría: si la regla tiene categoría, debe coincidir
-    if (rule.category_id !== null && rule.category_id !== categoryId) return false
-
-    // Verificar vehículo: si la regla tiene vehículo, debe coincidir
     if (rule.vehicle_type_id !== null && rule.vehicle_type_id !== vehicleTypeId) return false
-
     return true
   })
 
-  // Retornar la regla de mayor prioridad (menor número)
+  // Retornar la regla de mayor prioridad
   return matchingRules[0] || null
 }
 
@@ -138,25 +134,24 @@ export async function resolveSchedulingRule(
  * Solo retorna slots donde hay un muelle individual con bloque completo libre.
  */
 export async function findAvailableSlots(
+  supabase: SupabaseClient,
   date: string,
   durationMinutes: number,
   environmentId: number | null,
   vehicleTypeId: number | null
 ): Promise<AvailableSlot[]> {
-  const supabase = createClient()
-
   // 1. Obtener settings operativos
   const { data: settings, error: settingsError } = await supabase
     .from("cedi_settings")
     .select("*")
     .single()
-  
+
   if (settingsError || !settings) {
     if (settingsError) console.error("Error fetching settings:", settingsError)
     return []
   }
 
-  // 2. Obtener muelles compatibles con el ambiente
+  // 2. Obtener muelles activos
   const { data: allDocks, error: docksError } = await supabase
     .from("docks")
     .select("*")
@@ -171,27 +166,18 @@ export async function findAvailableSlots(
 
   // Filtrar muelles por ambiente y disponibilidad operativa para DESCARGA
   const compatibleDocks = (allDocks as unknown as Dock[]).filter((dock) => {
-    // 1. Validar que el muelle permita descargar mercancía basado en su tipo
-    if (dock.type === 'CARGUE') return false; // Bloqueado para descarga
-    if (dock.type === 'MIXTO' && !dock.is_unloading_authorized) return false; // Mixto requiere autorización explícita
-
-    // 2. Si el muelle no tiene ambiente asignado (fallback), es universal
-    if (!dock.environment_id) return true;
-    
-    // 3. Match de ambiente
-    // 3. Match de ambiente (solo si se especificó uno)
-    if (environmentId && dock.environment_id && dock.environment_id !== environmentId) return false;
-    
-    // 4. Verificar vehículo soportado (si el muelle tiene restricciones configuradas)
+    if (dock.type === 'CARGUE') return false
+    if (dock.type === 'MIXTO' && !dock.is_unloading_authorized) return false
+    if (!dock.environment_id) return true
+    if (environmentId && dock.environment_id && dock.environment_id !== environmentId) return false
     const svt = dock.supported_vehicle_types || []
-    if (svt.length > 0 && vehicleTypeId && !svt.includes(vehicleTypeId)) return false;
-    
+    if (svt.length > 0 && vehicleTypeId && !svt.includes(vehicleTypeId)) return false
     return true
   })
 
   if (compatibleDocks.length === 0) return []
 
-  // 3. Obtener citas activas para el día
+  // 3. Obtener citas activas para el día (solo campos para colisión)
   const { data: appointments, error: apptError } = await supabase
     .from("appointments")
     .select("scheduled_time, estimated_duration_minutes, scheduled_end_time, dock_id")
@@ -211,7 +197,7 @@ export async function findAvailableSlots(
   }))
 
   // 4. Verificar capacidad extendida para decidir el rango de búsqueda
-  let capacityLimit = null;
+  let capacityLimit = null
   if (environmentId) {
     const { data: capLimit, error: capError } = await supabase
       .from("daily_capacity_limits")
@@ -220,17 +206,15 @@ export async function findAvailableSlots(
       .eq("is_active", true)
       .single()
     capacityLimit = capLimit
-    
+
     if (capError && capError.code !== 'PGRST116') {
       console.error("Error fetching capacity limit for slots:", capError)
     }
   }
 
   const startMin = parseTime(settings.start_time)
-  // Usar end_time normal del CEDI; el horario extendido expande el rango si aplica
   let endMin = parseTime(settings.end_time)
 
-  // Si hay horario extendido configurado, ampliar el rango de búsqueda
   if (capacityLimit?.extended_end_time) {
     const extendedEnd = parseTime(capacityLimit.extended_end_time)
     if (extendedEnd > endMin) {
@@ -241,12 +225,10 @@ export async function findAvailableSlots(
   const STEP_MINUTES = 30
   const slots: AvailableSlot[] = []
 
-  // 5. Iterar sobre el horario buscando huecos
   for (let t = startMin; t <= endMin - durationMinutes; t += STEP_MINUTES) {
     const proposedStart = t
     const proposedEnd = t + durationMinutes
 
-    // Buscar el primer muelle compatible que tenga el bloque libre
     const availableDock = compatibleDocks.find((dock) => {
       const hasConflict = bookedBlocks.some(
         (block) =>
@@ -275,7 +257,6 @@ export interface SchedulingRequest {
   date: string
   environmentId: number | null
   vehicleTypeId: number | null
-  categoryId: number | null
   totalBoxes: number
 }
 
@@ -290,47 +271,50 @@ export interface SchedulingResult {
 /**
  * Ejecuta el motor completo de scheduling en cascada.
  * Paso 1: Valida capacidad → Paso 2: Calcula duración → Paso 3: Busca slots.
+ *
+ * Debe invocarse exclusivamente desde un Server Action o Route Handler,
+ * pasando el cliente de Supabase del servidor (lib/supabase/server.ts).
  */
 export async function runSchedulingEngine(
+  supabase: SupabaseClient,
   request: SchedulingRequest
 ): Promise<SchedulingResult> {
-  const supabase = createClient()
   // Paso 1: Capacidad
   const capacity = await checkDailyCapacity(
+    supabase,
     request.date,
     request.environmentId,
     request.totalBoxes
   )
 
   const rule = await resolveSchedulingRule(
+    supabase,
     request.environmentId,
     request.vehicleTypeId,
-    request.categoryId,
     request.totalBoxes
   )
-  
+
   let durationMinutes = 60 // Fallback base
   let calculationSource: 'RULE' | 'VEHICLE_FALLBACK' | 'DEFAULT' = 'DEFAULT'
 
   if (rule) {
     if (rule.is_dynamic) {
       if (rule.max_duration_minutes && rule.max_boxes && rule.max_boxes > rule.min_boxes) {
-        // --- NUEVA LÓGICA: Interpolación Lineal (LERP) por Rango ---
+        // Interpolación Lineal (LERP) por Rango
         const deltaBoxes = rule.max_boxes - rule.min_boxes
         const deltaTime = rule.max_duration_minutes - rule.duration_minutes
         const extraBoxes = Math.max(0, request.totalBoxes - rule.min_boxes)
-        
         const interpolatedExtra = (extraBoxes * deltaTime) / deltaBoxes
         durationMinutes = Math.ceil(rule.duration_minutes + interpolatedExtra)
         calculationSource = 'RULE'
       } else if (request.vehicleTypeId) {
-        // --- LOGICA EXISTENTE: Cálculo por eficiencia de vehículo + multiplicador ---
+        // Cálculo por eficiencia de vehículo + multiplicador
         const { data: vehicle } = await supabase
           .from("vehicle_types")
-          .select("*")
+          .select("base_boxes, base_time_minutes, maneuver_time_minutes")
           .eq("id", request.vehicleTypeId)
           .single()
-        
+
         if (vehicle) {
           const { realMinutes } = calculateDuration(
             request.totalBoxes,
@@ -357,7 +341,7 @@ export async function runSchedulingEngine(
     // Fallback: Si no hay regla, usar cálculo estándar del vehículo
     const { data: vehicle } = await supabase
       .from("vehicle_types")
-      .select("*")
+      .select("base_boxes, base_time_minutes, maneuver_time_minutes")
       .eq("id", request.vehicleTypeId)
       .single()
 
@@ -375,6 +359,7 @@ export async function runSchedulingEngine(
 
   // Paso 3: Slots disponibles
   const slots = await findAvailableSlots(
+    supabase,
     request.date,
     durationMinutes,
     request.environmentId,

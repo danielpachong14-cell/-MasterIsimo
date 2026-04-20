@@ -1,10 +1,9 @@
-"use client"
-
-import { useState, useEffect } from "react"
-import { Appointment } from "@/types"
+import { useState, useEffect, useCallback } from "react"
+import { Appointment, AppointmentStatus } from "@/types"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
 import { cn, formatTime, capitalize } from "@/lib/utils"
+import { fetchAppointmentById, buildStatusTransitionUpdates } from "@/lib/services/appointments"
 
 interface AppointmentDetailsModalProps {
   isOpen: boolean
@@ -28,6 +27,8 @@ const NEXT_ACTION_LABELS: Record<string, { label: string, icon: string, color: s
 };
 
 export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSuccess }: AppointmentDetailsModalProps) {
+  // ─── Estado Reactivo & Sincronización ───────────────────────
+  const [currentAppointment, setCurrentAppointment] = useState<Appointment | null>(appointment)
   const [newNote, setNewNote] = useState("")
   const [noteHistory, setNoteHistory] = useState("")
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(true)
@@ -38,19 +39,69 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
   const [finalNote, setFinalNote] = useState("")
   const supabase = createClient()
 
+  // Sistema de actualización automática cada minuto para los cronómetros "activos"
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    if (!isOpen) return
+    const timer = setInterval(() => {
+      setTick(prev => prev + 1)
+    }, 60000)
+    return () => clearInterval(timer)
+  }, [isOpen])
+
+  // Sincronizar estado local con prop inicial
   useEffect(() => {
     if (appointment) {
-      setNoteHistory(appointment.notes || appointment.comments || "")
-      setNewNote("")
+      setCurrentAppointment(appointment)
     }
   }, [appointment])
 
-  if (!isOpen || !appointment) return null
+  // Suscripción Real-time para cambios externos (ej. desde Kanban)
+  useEffect(() => {
+    if (!isOpen || !appointment?.id) return
+
+    const channel = supabase
+      .channel(`appt-modal-${appointment.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'appointments',
+          filter: `id=eq.${appointment.id}`
+        },
+        async () => {
+          // Re-fetch ligero para obtener estructura aplanada y POs frescas
+          const updated = await fetchAppointmentById(supabase, appointment.id)
+          if (updated) {
+            setCurrentAppointment(updated)
+            // Sincronizar historial de notas si cambió externamente
+            setNoteHistory(updated.notes || updated.comments || "")
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [isOpen, appointment?.id, supabase])
+
+  // Sincronizar notas cuando cambia el registro (interna o externamente)
+  useEffect(() => {
+    if (currentAppointment) {
+      setNoteHistory(currentAppointment.notes || currentAppointment.comments || "")
+      setNewNote("")
+    }
+  }, [currentAppointment?.id, currentAppointment?.notes])
+
+  if (!isOpen || !currentAppointment) return null
 
   const handleSaveNotes = async () => {
-    if (!newNote.trim()) return
+    if (!newNote.trim() || !currentAppointment) return
 
     setSaving(true)
+    const originalNotes = noteHistory
     try {
       const timestamp = new Date().toLocaleString('es-CO', { 
         day: '2-digit', month: '2-digit', year: 'numeric', 
@@ -59,24 +110,21 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       const noteEntry = `[${timestamp}] ${newNote.trim()}`
       const updatedNotes = noteHistory ? `${noteHistory}\n${noteEntry}` : noteEntry
       
+      // UI Optimista
+      setNoteHistory(updatedNotes)
+      setNewNote("")
+
       const { error } = await supabase
         .from('appointments')
         .update({ notes: updatedNotes })
-        .eq('id', appointment.id)
+        .eq('id', currentAppointment.id)
 
       if (error) throw error
-      
-      setNoteHistory(updatedNotes)
-      setNewNote("") // Clears the textarea after appending
       onSuccess?.()
-      // We explicitly don't close the modal so they can continue looking at the history.
     } catch (e: unknown) {
+      setNoteHistory(originalNotes)
       const err = e as { message?: string, code?: string };
-      if (err.message?.includes("column") || err.code === 'PGRST204') {
-        alert("⚠️ Error: La base de datos requiere una actualización.\n\nPor favor ejecuta este comando en el Editor SQL de tu Supabase:\n\nALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS notes text;")
-      } else {
-        alert("Error al guardar: " + err.message)
-      }
+      alert("Error al guardar: " + err.message)
     } finally {
       setSaving(false)
     }
@@ -90,62 +138,64 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
   }
 
   const handleSaveEditedHistory = async () => {
+    if (!currentAppointment) return
     setSaving(true)
+    const originalNotes = noteHistory
     try {
+      // UI Optimista
+      setNoteHistory(editingContent)
+      setIsEditingHistory(false)
+
       const { error } = await supabase
         .from('appointments')
         .update({ notes: editingContent })
-        .eq('id', appointment.id)
+        .eq('id', currentAppointment.id)
 
       if (error) throw error
-      
-      setNoteHistory(editingContent)
-      setIsEditingHistory(false)
       onSuccess?.()
     } catch (e: unknown) {
+      setNoteHistory(originalNotes)
       const err = e as { message?: string, code?: string };
-      if (err.message?.includes("column") || err.code === 'PGRST204') {
-        alert("⚠️ Error: La base de datos requiere una actualización.\n\nPor favor ejecuta este comando en el Editor SQL de tu Supabase:\n\nALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS notes text;")
-      } else {
-        alert("Error al guardar: " + err.message)
-      }
+      alert("Error al guardar: " + err.message)
     } finally {
       setSaving(false)
     }
   }
 
   const handleAdvanceStatus = async () => {
-    if (!appointment) return
-    const nextStatus = STATUS_SEQUENCE[appointment.status]
+    if (!currentAppointment) return
+    const nextStatus = STATUS_SEQUENCE[currentAppointment.status] as AppointmentStatus
     if (!nextStatus) return
 
-    // If it's the final step, intercept to ask for a note
     if (nextStatus === 'FINALIZADO') {
       setIsFinalizing(true)
       return
     }
 
     setSaving(true)
-    try {
-      const updates: Record<string, string> = { status: nextStatus }
-      
-      if (nextStatus === 'EN_PORTERIA' && !appointment.arrival_time) {
-        updates.arrival_time = new Date().toISOString()
-      } else if (nextStatus === 'EN_MUELLE' && !appointment.docking_time) {
-        updates.docking_time = new Date().toISOString()
-      } else if (nextStatus === 'DESCARGANDO' && !appointment.start_unloading_time) {
-        updates.start_unloading_time = new Date().toISOString()
-      }
+    
+    // 1. UI Optimista: Actualizamos estado local inmediatamente
+    const updates = buildStatusTransitionUpdates(currentAppointment as unknown as KanbanAppointmentRow, nextStatus)
+    const originalAppointment = { ...currentAppointment }
+    
+    setCurrentAppointment({
+      ...currentAppointment,
+      ...updates
+    } as Appointment)
 
+    try {
+      // 2. Persistencia en Servidor
       const { error } = await supabase
         .from('appointments')
         .update(updates)
-        .eq('id', appointment.id)
+        .eq('id', currentAppointment.id)
 
       if (error) throw error
       onSuccess?.()
     } catch (e: unknown) {
       const error = e as Error
+      // Revertir si falla
+      setCurrentAppointment(originalAppointment)
       alert("Error al avanzar estado: " + error.message)
     } finally {
       setSaving(false)
@@ -153,38 +203,36 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
   }
 
   const handleConfirmFinalization = async () => {
-    if (!appointment || !finalNote.trim()) return
+    if (!currentAppointment || !finalNote.trim()) return
 
     setSaving(true)
+    const originalAppointment = { ...currentAppointment }
+
     try {
-      // 1. Prepare the note log
       const timestamp = new Date().toLocaleString('es-CO', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true
       });
       const formattedNote = `[CIERRE OPERATIVO - ${timestamp}] ${finalNote}`;
-      const updatedNotes = noteHistory 
-        ? `${noteHistory}\n\n${formattedNote}`
-        : formattedNote;
+      const updatedNotes = noteHistory ? `${noteHistory}\n\n${formattedNote}` : formattedNote;
 
-      // 2. Atomic update: status AND notes AND end_unloading_time
-      const updates: Record<string, string> = {
-        status: 'FINALIZADO',
+      // Usar lógica centralizada + notas
+      const baseUpdates = buildStatusTransitionUpdates(currentAppointment as unknown as KanbanAppointmentRow, 'FINALIZADO' as AppointmentStatus)
+      const updates = {
+        ...baseUpdates,
         notes: updatedNotes
       }
       
-      if (!appointment.end_unloading_time) {
-        updates.end_unloading_time = new Date().toISOString()
-      }
+      // UI Optimista
+      setCurrentAppointment({
+        ...currentAppointment,
+        ...updates
+      } as Appointment)
 
       const { error } = await supabase
         .from('appointments')
         .update(updates)
-        .eq('id', appointment.id)
+        .eq('id', currentAppointment.id)
 
       if (error) throw error
       
@@ -192,6 +240,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       setIsFinalizing(false)
       setFinalNote("")
     } catch (e: unknown) {
+      setCurrentAppointment(originalAppointment)
       const error = e as Error
       alert("Error al finalizar operación: " + error.message)
     } finally {
@@ -219,9 +268,9 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     return `${diff} min${!end && isActive ? ' (activo)' : ''}`
   }
 
-  const patioDuration = calculateDuration(appointment.arrival_time, appointment.docking_time, appointment.status === 'EN_PORTERIA')
-  const dockDuration = calculateDuration(appointment.docking_time, appointment.start_unloading_time, appointment.status === 'EN_MUELLE')
-  const unloadingDuration = calculateDuration(appointment.start_unloading_time, appointment.end_unloading_time, appointment.status === 'DESCARGANDO')
+  const patioDuration = calculateDuration(currentAppointment.arrival_time, currentAppointment.docking_time, currentAppointment.status === 'EN_PORTERIA')
+  const dockDuration = calculateDuration(currentAppointment.docking_time, currentAppointment.start_unloading_time, currentAppointment.status === 'EN_MUELLE')
+  const unloadingDuration = calculateDuration(currentAppointment.start_unloading_time, currentAppointment.end_unloading_time, currentAppointment.status === 'DESCARGANDO')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -238,45 +287,51 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
           <div className="relative z-10 flex flex-col md:flex-row md:items-end gap-6 text-white w-full">
             <div className="space-y-1">
               <p className="text-[10px] uppercase font-black tracking-[0.3em] opacity-80">
-                {appointment.appointment_number || appointment.id.split('-')[0]}
+                {currentAppointment.appointment_number || currentAppointment.id.split('-')[0]}
               </p>
               <h2 className="text-3xl font-black font-headline tracking-tighter leading-none">
-                {capitalize(appointment.company_name)}
+                {capitalize(currentAppointment.company_name)}
               </h2>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <span className="bg-white/20 px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase">
-                {appointment.status}
+                {currentAppointment.status}
               </span>
               <span className={cn(
                 "px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border backdrop-blur-md",
-                getPunctualityStyle(appointment.punctuality_status)
+                getPunctualityStyle(currentAppointment.punctuality_status)
               )}>
-                {appointment.punctuality_status?.replace('_', ' ') || 'SIN STATUS'}
+                {currentAppointment.punctuality_status?.replace('_', ' ') || 'SIN STATUS'}
               </span>
-              {appointment.is_walk_in && (
-                <span className="bg-amber-500 text-white px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase">
-                  EXPRESS
-                </span>
+              {currentAppointment.is_walk_in && (
+                currentAppointment.is_express ? (
+                  <span className="bg-amber-500 text-white px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase">
+                    EXPRESS
+                  </span>
+                ) : (
+                  <span className="bg-red-600 text-white px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase">
+                    LLEGADA SIN CITA
+                  </span>
+                )
               )}
 
               {/* Minimalist Advance Button / Final Note Input */}
-              {STATUS_SEQUENCE[appointment.status] && (
+              {STATUS_SEQUENCE[currentAppointment.status] && (
                 !isFinalizing ? (
                   <button
                     onClick={handleAdvanceStatus}
                     disabled={saving}
                     className={cn(
                       "ml-4 px-6 py-2 rounded-full text-[11px] font-black tracking-[0.15em] uppercase flex items-center gap-2.5 transition-all hover:scale-105 active:scale-95 shadow-xl border-b-2 border-white/20 hover:brightness-110",
-                      NEXT_ACTION_LABELS[STATUS_SEQUENCE[appointment.status]].color,
+                      NEXT_ACTION_LABELS[STATUS_SEQUENCE[currentAppointment.status]].color,
                       saving && "opacity-50 cursor-not-allowed"
                     )}
                   >
                     <span className="material-symbols-outlined text-[18px]">
-                      {NEXT_ACTION_LABELS[STATUS_SEQUENCE[appointment.status]].icon}
+                      {NEXT_ACTION_LABELS[STATUS_SEQUENCE[currentAppointment.status]].icon}
                     </span>
-                    {NEXT_ACTION_LABELS[STATUS_SEQUENCE[appointment.status]].label}
+                    {NEXT_ACTION_LABELS[STATUS_SEQUENCE[currentAppointment.status]].label}
                   </button>
                 ) : (
                   <div className="ml-4 flex items-center gap-3 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -345,13 +400,13 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
               <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm">
                 <span className="material-symbols-outlined text-primary mb-1 text-[18px]">schedule</span>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest leading-none mb-1">Cita</p>
-                <p className="font-bold text-base text-on-surface">{formatTime(appointment.scheduled_time)}</p>
+                <p className="font-bold text-base text-on-surface">{formatTime(currentAppointment.scheduled_time)}</p>
               </div>
               <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm">
                 <span className="material-symbols-outlined text-success mb-1 text-[18px]">login</span>
                 <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest leading-none mb-1">Llegada</p>
                 <p className="font-bold text-base text-on-surface text-success">
-                  {appointment.arrival_time ? new Date(appointment.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                  {currentAppointment.arrival_time ? new Date(currentAppointment.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
                 </p>
               </div>
               <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-container shadow-sm border-l-4 border-l-amber-500 flex flex-col">
@@ -361,11 +416,11 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                 <div className="mt-auto pt-2 border-t border-surface-container flex flex-col gap-0.5">
                   <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
                     <span className="font-bold">Inicio:</span>
-                    <span className="font-mono">{formatTimeOnly(appointment.arrival_time)}</span>
+                    <span className="font-mono">{formatTimeOnly(currentAppointment.arrival_time)}</span>
                   </div>
                   <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
                     <span className="font-bold">Fin:</span>
-                    <span className="font-mono">{formatTimeOnly(appointment.docking_time)}</span>
+                    <span className="font-mono">{formatTimeOnly(currentAppointment.docking_time)}</span>
                   </div>
                 </div>
               </div>
@@ -377,11 +432,11 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                 <div className="mt-auto pt-2 border-t border-surface-container flex flex-col gap-0.5">
                   <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
                     <span className="font-bold">Inicio:</span>
-                    <span className="font-mono">{formatTimeOnly(appointment.docking_time)}</span>
+                    <span className="font-mono">{formatTimeOnly(currentAppointment.docking_time)}</span>
                   </div>
                   <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
                     <span className="font-bold">Fin:</span>
-                    <span className="font-mono">{formatTimeOnly(appointment.start_unloading_time)}</span>
+                    <span className="font-mono">{formatTimeOnly(currentAppointment.start_unloading_time)}</span>
                   </div>
                 </div>
               </div>
@@ -393,11 +448,11 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                 <div className="mt-auto pt-2 border-t border-surface-container flex flex-col gap-0.5">
                   <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
                     <span className="font-bold">Inicio:</span>
-                    <span className="font-mono">{formatTimeOnly(appointment.start_unloading_time)}</span>
+                    <span className="font-mono">{formatTimeOnly(currentAppointment.start_unloading_time)}</span>
                   </div>
                   <div className="flex justify-between items-center text-[9px] text-on-surface-variant">
                     <span className="font-bold">Fin:</span>
-                    <span className="font-mono">{formatTimeOnly(appointment.end_unloading_time)}</span>
+                    <span className="font-mono">{formatTimeOnly(currentAppointment.end_unloading_time)}</span>
                   </div>
                 </div>
               </div>
@@ -410,19 +465,19 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                 <div className="grid grid-cols-2 gap-y-4 gap-x-6">
                   <div>
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase">Chofer</p>
-                    <p className="font-bold text-sm text-on-surface capitalize">{capitalize(appointment.driver_name)}</p>
-                    <p className="text-xs text-on-surface-variant">{appointment.driver_phone}</p>
+                    <p className="font-bold text-sm text-on-surface capitalize">{capitalize(currentAppointment.driver_name)}</p>
+                    <p className="text-xs text-on-surface-variant">{currentAppointment.driver_phone}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase">Vehículo</p>
-                    <p className="font-bold text-sm text-on-surface uppercase">{appointment.license_plate}</p>
-                    <p className="text-xs text-on-surface-variant">{capitalize(appointment.vehicle_type)}</p>
+                    <p className="font-bold text-sm text-on-surface uppercase">{currentAppointment.license_plate?.toUpperCase()}</p>
+                    <p className="text-xs text-on-surface-variant">{capitalize(currentAppointment.vehicle_type)}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase mb-2">Órdenes de Compra (POs)</p>
                     <div className="flex flex-wrap gap-2">
-                      {appointment.appointment_purchase_orders && appointment.appointment_purchase_orders.length > 0 ? (
-                        appointment.appointment_purchase_orders.map(po => (
+                      {currentAppointment.appointment_purchase_orders && currentAppointment.appointment_purchase_orders.length > 0 ? (
+                        currentAppointment.appointment_purchase_orders.map(po => (
                           <div key={po.id} className="bg-white border border-surface-container-high/20 px-3 py-1.5 rounded-lg flex items-center gap-2">
                             <span className="material-symbols-outlined text-[14px] text-primary">receipt_long</span>
                             <span className="text-xs font-bold">{po.po_number || 'S/N'}</span>
@@ -438,10 +493,10 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Muelle Asignado</p>
-                        {appointment.dock_name ? (
+                        {currentAppointment.dock_name ? (
                           <span className="inline-flex items-center gap-1.5 font-black text-tertiary bg-tertiary/10 border border-tertiary/20 px-3 py-1.5 rounded-lg text-sm">
                             <span className="material-symbols-outlined text-[18px]">meeting_room</span>
-                            {appointment.dock_name}
+                            {currentAppointment.dock_name}
                           </span>
                         ) : (
                           <span className="text-xs italic text-on-surface-variant">Sin asignar</span>
@@ -450,7 +505,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                       <div className="text-right">
                         <p className="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Total Cajas</p>
                         <p className="font-black text-xl text-on-surface">
-                          {appointment.appointment_purchase_orders?.reduce((sum, po) => sum + (po.box_count || 0), 0) || appointment.box_count || 0}
+                          {currentAppointment.appointment_purchase_orders?.reduce((sum, po) => sum + (po.box_count || 0), 0) || currentAppointment.box_count || 0}
                         </p>
                       </div>
                     </div>
@@ -464,17 +519,17 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
               <div className="bg-surface-container-low p-5 rounded-2xl border border-surface-container h-full flex flex-col">
                 <h3 className="text-xs font-black tracking-widest text-primary/60 uppercase mb-4">Notas & Trazabilidad</h3>
                 
-                {appointment.force_reason && (
+                {currentAppointment.force_reason && (
                   <div className="bg-amber-50 rounded-xl p-3 border border-amber-200 mb-4 shrink-0">
                     <div className="flex items-center gap-1.5 mb-1 text-amber-700">
                       <span className="material-symbols-outlined text-[14px]">warning</span>
                       <p className="text-[10px] font-black uppercase tracking-widest">Asignación Forzada</p>
                     </div>
-                    <p className="text-xs font-medium text-amber-900">{appointment.force_reason}</p>
+                    <p className="text-xs font-medium text-amber-900">{currentAppointment.force_reason}</p>
                   </div>
                 )}
 
-                 <div className="flex flex-col flex-1">
+                <div className="flex flex-col flex-1">
                   {noteHistory && (
                     <div className="bg-surface-container-highest/20 border border-surface-container rounded-xl p-3 mb-4 shrink-0 transition-all">
                       <div className="flex items-center justify-between mb-2">

@@ -12,7 +12,9 @@ import { WalkInModal } from "./components/WalkInModal"
 import { EditAppointmentModal } from "./components/EditAppointmentModal"
 import { DeleteAppointmentModal } from "./components/DeleteAppointmentModal"
 import { AppointmentDetailsModal } from "./components/AppointmentDetailsModal"
-import { ScheduleSupplierModal } from "@/components/ui/ScheduleSupplierModal" // Usamos el Schedule normal para +Nueva Cita
+import { ScheduleSupplierModal } from "@/components/ui/ScheduleSupplierModal"
+import { buildStatusTransitionUpdates } from "@/lib/services/appointments"
+import { AppointmentStatus } from "@/types"
 
 const STATUS_RANKS: Record<string, number> = {
   'PENDIENTE': 0,
@@ -56,6 +58,15 @@ export default function TrazabilidadPage() {
 
   // Quick Stats
   const [stats, setStats] = useState({ total: 0, pending: 0, finished: 0, walkins: 0 })
+
+  // Sistema de actualización automática cada minuto para los cronómetros "activos"
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick(prev => prev + 1)
+    }, 60000)
+    return () => clearInterval(timer)
+  }, [])
 
   const calculateDuration = (start?: string | null, end?: string | null, isActive?: boolean) => {
     if (!start) return '--'
@@ -207,18 +218,8 @@ export default function TrazabilidadPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       
-      // 1. Actualizar el estado con verificación y Auto-KPIs de tiempo
-      const updates: Record<string, string> = { status: newStatus }
-      
-      if (newStatus === 'EN_PORTERIA' && !appointment.arrival_time) {
-        updates.arrival_time = new Date().toISOString()
-      } else if (newStatus === 'EN_MUELLE' && !appointment.docking_time) {
-        updates.docking_time = new Date().toISOString()
-      } else if (newStatus === 'DESCARGANDO' && !appointment.start_unloading_time) {
-        updates.start_unloading_time = new Date().toISOString()
-      } else if (newStatus === 'FINALIZADO' && !appointment.end_unloading_time) {
-        updates.end_unloading_time = new Date().toISOString()
-      }
+      // 1. Lógica centralizada de transiciones (KPIs)
+      const updates = buildStatusTransitionUpdates(appointment as unknown as KanbanAppointmentRow, newStatus as AppointmentStatus)
 
       const { error: updateError } = await supabase
         .from('appointments')
@@ -303,7 +304,7 @@ export default function TrazabilidadPage() {
               <Input 
                 placeholder="Buscar patente..." 
                 className="uppercase bg-white h-10 text-sm"
-                value={filters.licensePlate}
+                value={filters.licensePlate.toUpperCase()}
                 onChange={e => handleTextFilter('licensePlate', e.target.value)}
               />
             </div>
@@ -430,9 +431,15 @@ export default function TrazabilidadPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-on-surface">{capitalize(a.company_name)}</span>
                           {a.is_walk_in && (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-sm">
-                              <span className="material-symbols-outlined text-[10px]">bolt</span> EXPRESS
-                            </span>
+                            a.is_express ? (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-sm">
+                                <span className="material-symbols-outlined text-[10px]">bolt</span> EXPRESS
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-red-700 bg-red-100 border border-red-200 px-1.5 py-0.5 rounded-sm">
+                                <span className="material-symbols-outlined text-[10px]">warning</span> SIN CITA
+                              </span>
+                            )
                           )}
                         </div>
                         <div className="flex flex-wrap gap-1 max-w-[200px]">
@@ -446,7 +453,7 @@ export default function TrazabilidadPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col">
-                        <span className="font-bold text-on-surface">{a.license_plate}</span>
+                        <span className="font-bold text-on-surface uppercase">{a.license_plate?.toUpperCase()}</span>
                         <span className="text-xs text-on-surface-variant">Agendado: {formatTime(a.scheduled_time)}</span>
                         {a.arrival_time && (
                           <span className="text-[10px] font-bold text-primary">Llegada: {new Date(a.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>

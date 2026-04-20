@@ -95,6 +95,12 @@ export default function CheckInPage() {
       return
     }
 
+    const sanitizedPhone = driverPhone.replace(/\D/g, '')
+    if (sanitizedPhone.length !== 10) {
+      alert("El número de celular debe tener exactamente 10 dígitos numéricos.")
+      return
+    }
+
     setLoading(true)
     try {
       const { data, error } = await supabase.rpc('process_arrival_check_in', normalizeObjectForStorage({
@@ -134,6 +140,12 @@ export default function CheckInPage() {
     const sanitizedPlate = licensePlate.replace(/[^A-Za-z0-9]/g, '')
     if (sanitizedPlate.length !== 6) {
       alert("La placa debe tener exactamente 6 caracteres y no contener guiones. Ej: ABC123")
+      return
+    }
+
+    const sanitizedPhone = driverPhone.replace(/\D/g, '')
+    if (sanitizedPhone.length !== 10) {
+      alert("El número de celular debe tener exactamente 10 dígitos numéricos.")
       return
     }
 
@@ -257,10 +269,10 @@ export default function CheckInPage() {
             <p className="text-[10px] font-black text-center text-on-surface-variant uppercase tracking-[0.2em] opacity-60">Datos del ingreso</p>
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
-                <Input label="Placa del Vehículo (Obligatorio)" className="uppercase font-black text-lg h-14" value={licensePlate} onChange={e => setLicensePlate(e.target.value)} required />
+                <Input label="Placa del Vehículo (Obligatorio)" className="uppercase font-black text-lg h-14" value={licensePlate} onChange={e => setLicensePlate(e.target.value.substring(0, 6))} maxLength={6} required />
               </div>
-              <Input label="Cédula Conductor (Opcional)" type="number" className="font-bold" value={driverId} onChange={e => setDriverId(e.target.value)} />
-              <Input label="Celular (Obligatorio)" type="number" className="font-bold" value={driverPhone} onChange={e => setDriverPhone(e.target.value)} required />
+              <Input label="Cédula Conductor (Opcional)" type="text" className="font-bold" value={driverId} onChange={e => setDriverId(e.target.value.replace(/\D/g, ''))} />
+              <Input label="Celular (Obligatorio)" type="text" className="font-bold" value={driverPhone} onChange={e => setDriverPhone(e.target.value.replace(/\D/g, '').substring(0, 10))} maxLength={10} required />
               <div className="col-span-2">
                 <Input label="Nombre del Conductor (Obligatorio)" className="font-bold h-14 capitalize" value={driverName} onChange={e => setDriverName(e.target.value)} required />
               </div>
@@ -291,13 +303,13 @@ export default function CheckInPage() {
             <div className="col-span-2">
               <Input label="Empresa de Transporte / Origen (Obligatorio)" required value={wiCompany} onChange={e => setWiCompany(e.target.value)} className="bg-white" />
             </div>
-            <Input label="Placa (Obligatorio)" required className="uppercase font-black bg-white" value={licensePlate} onChange={e => setLicensePlate(e.target.value)} />
-            <Input label="Cédula (Opcional)" type="number" className="bg-white" value={driverId} onChange={e => setDriverId(e.target.value)} />
+            <Input label="Placa (Obligatorio)" required className="uppercase font-black bg-white" value={licensePlate} onChange={e => setLicensePlate(e.target.value.substring(0, 6))} maxLength={6} />
+            <Input label="Cédula (Opcional)" type="text" className="bg-white" value={driverId} onChange={e => setDriverId(e.target.value.replace(/\D/g, ''))} />
             <div className="col-span-2">
               <Input label="Nombre del Conductor (Obligatorio)" required className="capitalize bg-white" value={driverName} onChange={e => setDriverName(e.target.value)} />
             </div>
             <div className="col-span-2">
-              <Input label="Celular (Obligatorio)" required type="number" className="bg-white" value={driverPhone} onChange={e => setDriverPhone(e.target.value)} />
+              <Input label="Celular (Obligatorio)" required type="text" className="bg-white" value={driverPhone} onChange={e => setDriverPhone(e.target.value.replace(/\D/g, '').substring(0, 10))} maxLength={10} />
             </div>
             <Input label="No. OC (Obligatorio)" required value={wiPoNumber} onChange={e => setWiPoNumber(e.target.value)} className="bg-white" />
             <Input label="Cajas (Aprox.) (Obligatorio)" type="number" required value={wiBoxes} onChange={e => setWiBoxes(e.target.value)} className="bg-white" />

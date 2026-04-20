@@ -7,7 +7,6 @@ import {
   DailyCapacityLimit, 
   SchedulingRule, 
   VehicleType, 
-  ProductCategory, 
   Dock 
 } from "@/types"
 import { Card } from "@/components/ui/Card"
@@ -20,7 +19,7 @@ const LOGISTICS_ICONS = [
   'warehouse', 'inventory_2', 'pallet', 'forklift', 
   'local_shipping', 'shelves', 'conveyor_belt', 'trolley', 
   'package_2', 'barcode_scanner', 'factory', 'delivery_dining',
-  // TEMPERATURA / AMBIENTE
+  // TEMPERATURA / TIPO DE CARGA
   'ac_unit', 'hvac', 'water_drop', 'thermostat', 'kitchen', 
   'severe_cold', 'cyclone', 'science',
   // HARD DISCOUNT / COMIDA
@@ -47,7 +46,6 @@ export default function ConfiguracionPage() {
   const [limits, setLimits] = useState<DailyCapacityLimit[]>([])
   const [rules, setRules] = useState<SchedulingRule[]>([])
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([])
-  const [categories, setCategories] = useState<ProductCategory[]>([])
   const [docks, setDocks] = useState<Dock[]>([])
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [cediSettings, setCediSettings] = useState<any>(null)
@@ -57,7 +55,7 @@ export default function ConfiguracionPage() {
   const [saving, setSaving] = useState(false)
   
   // --- ESTADO DE MODALES Y EDICIÓN ---
-  const [activeModal, setActiveModal] = useState<'env' | 'limit' | 'rule' | 'vehicle' | 'category' | 'dock' | 'cedi' | null>(null)
+  const [activeModal, setActiveModal] = useState<'env' | 'limit' | 'rule' | 'vehicle' | 'dock' | 'cedi' | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [editingItem, setEditingItem] = useState<any>(null)
 
@@ -66,12 +64,11 @@ export default function ConfiguracionPage() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [envRes, limitRes, ruleRes, vehRes, catRes, dockRes, cediRes] = await Promise.all([
+      const [envRes, limitRes, ruleRes, vehRes, dockRes, cediRes] = await Promise.all([
         supabase.from('environments').select('*'),
         supabase.from('daily_capacity_limits').select('*, environment:environments(*)'),
-        supabase.from('scheduling_rules').select('*, environment:environments(*), vehicle_type:vehicle_types(*), category:product_categories(*)').order('priority', { ascending: true }),
+        supabase.from('scheduling_rules').select('*, environment:environments(*), vehicle_type:vehicle_types(*)').order('priority', { ascending: true }),
         supabase.from('vehicle_types').select('*'),
-        supabase.from('product_categories').select('*'),
         supabase.from('docks').select('*, environment:environments(*)').order('name'),
         supabase.from('cedi_settings').select('*').single()
       ])
@@ -80,7 +77,6 @@ export default function ConfiguracionPage() {
       if (limitRes.data) setLimits(limitRes.data)
       if (ruleRes.data) setRules(ruleRes.data)
       if (vehRes.data) setVehicleTypes(vehRes.data)
-      if (catRes.data) setCategories(catRes.data)
       if (dockRes.data) setDocks(dockRes.data)
       if (cediRes.data) setCediSettings(cediRes.data)
     } catch (error) {
@@ -103,7 +99,7 @@ export default function ConfiguracionPage() {
       // 1. Limpieza profunda del payload
       // Extraemos relaciones y campos automáticos que fallarían en un 'upsert'
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { environment, vehicle_type, category, created_at, updated_at, ...cleanPayload } = data
+      const { environment, vehicle_type, created_at, updated_at, ...cleanPayload } = data
       
       // 2. Manejo de ID y campos por defecto y estandarización dinámica
       const payload = normalizeObjectForStorage({ ...cleanPayload })
@@ -210,10 +206,10 @@ export default function ConfiguracionPage() {
         </Button>
       </section>
 
-      {/* --- BLOQUE 1: INFRAESTRUCTURA (AMBIENTES Y MUELLES) --- */}
+      {/* --- BLOQUE 1: INFRAESTRUCTURA (TIPOS DE CARGA Y MUELLES) --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* SECCIÓN: AMBIENTES OPERATIVOS */}
+        {/* SECCIÓN: TIPOS DE CARGA OPERATIVOS */}
         <section className="space-y-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
@@ -221,7 +217,7 @@ export default function ConfiguracionPage() {
                 <span className="material-symbols-outlined text-2xl">warehouse</span>
               </div>
               <div>
-                <h2 className="text-2xl font-black font-headline">Ambientes</h2>
+                <h2 className="text-2xl font-black font-headline">Tipos de Carga</h2>
                 <p className="text-xs text-on-surface-variant font-bold uppercase tracking-widest">Zonas del CEDI</p>
               </div>
             </div>
@@ -289,7 +285,7 @@ export default function ConfiguracionPage() {
                 <thead className="bg-surface-container-lowest sticky top-0 z-10">
                   <tr>
                     <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Nombre</th>
-                    <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
+                    <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Tipo de Carga</th>
                     <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Tipo / Estado</th>
                     <th className="px-5 py-3 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right">Acciones</th>
                   </tr>
@@ -355,7 +351,7 @@ export default function ConfiguracionPage() {
         </section>
       </div>
 
-      {/* --- BLOQUE 2: PARÁMETROS MAESTROS (VEHÍCULOS Y CATEGORÍAS) --- */}
+      {/* --- BLOQUE 2: PARÁMETROS MAESTROS (VEHÍCULOS) --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* SECCIÓN: TIPOS DE VEHÍCULOS */}
@@ -418,51 +414,6 @@ export default function ConfiguracionPage() {
             </div>
           </Card>
         </section>
-
-        {/* SECCIÓN: CATEGORÍAS DE PRODUCTO */}
-        <section className="space-y-6">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-orange-500/10 rounded-2xl flex items-center justify-center text-orange-600 shadow-sm">
-                <span className="material-symbols-outlined text-2xl">category</span>
-              </div>
-              <div>
-                <h2 className="text-2xl font-black font-headline">Categorías</h2>
-                <p className="text-xs text-on-surface-variant font-bold uppercase tracking-widest">Segmentación</p>
-              </div>
-            </div>
-            <Button onClick={() => { setEditingItem({}); setActiveModal('category') }} variant="secondary" size="sm" className="gap-2">
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              Nueva
-            </Button>
-          </div>
-          
-          <Card className="overflow-hidden border-outline-variant/30 shadow-subtle bg-white/60">
-            <div className="h-[400px] overflow-y-auto p-5 custom-scrollbar">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {categories.map(cat => (
-                  <Card key={cat.id} className={cn(
-                    "p-4 border-white/50 bg-white/40 backdrop-blur-md group hover:bg-white/80 transition-all border flex items-center justify-between",
-                    !cat.is_active && "opacity-60 grayscale-[0.4]"
-                  )}>
-                    <div>
-                      <h3 className="font-bold text-sm text-on-surface">{capitalize(cat.display_name)}</h3>
-                      <p className="text-[9px] text-on-surface-variant font-mono uppercase italic">{cat.name}</p>
-                    </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => { setEditingItem(cat); setActiveModal('category') }} className="p-1.5 hover:bg-primary/10 text-primary rounded-lg">
-                        <span className="material-symbols-outlined text-sm">edit</span>
-                      </button>
-                      <button onClick={() => handleDelete('product_categories', cat.id, false)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg">
-                        <span className="material-symbols-outlined text-sm">delete</span>
-                      </button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </Card>
-        </section>
       </div>
 
       {/* --- BLOQUE 3: LÓGICA DE NEGOCIO (CAPACIDADES Y REGLAS) --- */}
@@ -491,7 +442,7 @@ export default function ConfiguracionPage() {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-surface-container-lowest sticky top-0 z-10">
                   <tr>
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Tipo de Carga</th>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Límite Normal</th>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Límite Extendido</th>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Horario Ext.</th>
@@ -563,9 +514,8 @@ export default function ConfiguracionPage() {
                   <tr>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">P</th>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Nombre</th>
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Ambiente</th>
+                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Tipo de Carga</th>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Vehículo</th>
-                    <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Categoría</th>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Rango Cajas</th>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase">Duración</th>
                     <th className="px-6 py-4 text-[10px] font-black tracking-widest text-on-surface-variant uppercase text-right"></th>
@@ -590,7 +540,6 @@ export default function ConfiguracionPage() {
                     <td className="px-6 py-4 font-bold text-sm text-on-surface">{capitalize(rule.name)}</td>
                     <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{capitalize(rule.environment?.display_name) || 'Todos'}</td>
                     <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{capitalize(rule.vehicle_type?.name) || 'Todos'}</td>
-                    <td className="px-6 py-4 text-xs font-bold text-on-surface-variant">{capitalize(rule.category?.display_name) || 'Todas'}</td>
                     <td className="px-6 py-4 font-mono font-bold text-xs">{rule.min_boxes} — {rule.max_boxes || '∞'}</td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
@@ -701,14 +650,14 @@ export default function ConfiguracionPage() {
                 <Input value={editingItem.name || ''} onChange={e => setEditingItem({...editingItem, name: e.target.value})} placeholder="Ej: B-01, Muelle 5..." required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-on-surface-variant">Ambiente Operativo</label>
+                <label className="text-[10px] font-black uppercase text-on-surface-variant">Tipo de Carga</label>
                 <select 
                   className="w-full bg-surface-container rounded-xl px-4 h-12 text-sm font-bold border-0"
                   value={editingItem.environment_id || ''}
                   onChange={e => setEditingItem({...editingItem, environment_id: Number(e.target.value)})}
                   required
                 >
-                  <option value="">Seleccionar Ambiente...</option>
+                  <option value="">Seleccionar Tipo de Carga...</option>
                   {environments.map(e => <option key={e.id} value={e.id}>{e.display_name}</option>)}
                 </select>
               </div>
@@ -791,26 +740,7 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {/* MODAL CATEGORÍA */}
-      {activeModal === 'category' && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-          <Card className="w-full max-w-sm p-8 shadow-2xl bg-white border-0">
-            <h2 className="text-2xl font-black font-headline mb-6">Categoría</h2>
-            <form onSubmit={(e) => { e.preventDefault(); handleSave('product_categories', editingItem) }} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-on-surface-variant">Nombre para el sistema</label>
-                <Input value={editingItem.display_name || ''} onChange={e => setEditingItem({...editingItem, display_name: e.target.value, name: e.target.value.toUpperCase().replace(/\s+/g, '_')})} placeholder="Ej: Frutas y Verduras..." required />
-              </div>
-              <div className="flex gap-4 pt-4">
-                <Button type="button" variant="secondary" className="flex-1" onClick={() => setActiveModal(null)}>Cancelar</Button>
-                <Button type="submit" className="flex-1 bg-orange-600 text-white" disabled={saving}>Guardar</Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
 
-      {/* MODAL REGLA (REUTILIZADO Y MEJORADO) */}
       {activeModal === 'rule' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto pt-20">
           <Card className="w-full max-w-2xl p-8 shadow-2xl bg-white border-0 my-8">
@@ -821,9 +751,9 @@ export default function ConfiguracionPage() {
                 <Input value={editingItem.name || ''} onChange={e => setEditingItem({...editingItem, name: e.target.value})} placeholder="Ej: Secos > 1500 cajas..." required />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-on-surface-variant">Ambiente</label>
+                <label className="text-[10px] font-black uppercase text-on-surface-variant">Tipo de Carga</label>
                 <select className="w-full bg-surface-container rounded-xl px-4 py-2.5 text-sm font-bold border-0" value={editingItem.environment_id || ''} onChange={e => setEditingItem({...editingItem, environment_id: Number(e.target.value) || null})}>
-                  <option value="">Cualquier Ambiente</option>
+                  <option value="">Cualquier Tipo de Carga</option>
                   {environments.map(e => <option key={e.id} value={e.id}>{e.display_name}</option>)}
                 </select>
               </div>
@@ -835,13 +765,6 @@ export default function ConfiguracionPage() {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-on-surface-variant">Categoría Producto</label>
-                <select className="w-full bg-surface-container rounded-xl px-4 py-2.5 text-sm font-bold border-0" value={editingItem.category_id || ''} onChange={e => setEditingItem({...editingItem, category_id: Number(e.target.value) || null})}>
-                  <option value="">Cualquier Categoría</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.display_name}</option>)}
-                </select>
-              </div>
-               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-on-surface-variant">Prioridad de Aplicación</label>
                 <select 
                   className="w-full bg-surface-container rounded-xl px-4 py-2.5 text-sm font-bold border-0" 
@@ -991,7 +914,7 @@ export default function ConfiguracionPage() {
             <h2 className="text-2xl font-black font-headline mb-6">Capacidad de Cajas</h2>
             <form onSubmit={(e) => { e.preventDefault(); handleSave('daily_capacity_limits', editingItem) }} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-on-surface-variant">Ambiente</label>
+                <label className="text-[10px] font-black uppercase text-on-surface-variant">Tipo de Carga</label>
                 <select className="w-full bg-surface-container rounded-xl px-4 py-2.5 text-sm font-bold border-0" value={editingItem.environment_id || ''} onChange={e => setEditingItem({...editingItem, environment_id: Number(e.target.value)})} required>
                   <option value="">Seleccionar...</option>
                   {environments.map(e => <option key={e.id} value={e.id}>{e.display_name}</option>)}
@@ -1026,11 +949,11 @@ export default function ConfiguracionPage() {
         </div>
       )}
 
-      {/* MODAL AMBIENTE (REUTILIZADO) */}
+      {/* MODAL TIPO DE CARGA (REUTILIZADO) */}
       {activeModal === 'env' && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <Card className="w-full max-w-sm p-8 shadow-2xl bg-white border-0">
-            <h2 className="text-2xl font-black font-headline mb-6">Configurar Ambiente</h2>
+            <h2 className="text-2xl font-black font-headline mb-6">Configurar Tipo de Carga</h2>
             <form onSubmit={(e) => { e.preventDefault(); handleSave('environments', editingItem) }} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[10px] font-black uppercase text-on-surface-variant">Nombre de Muestra</label>

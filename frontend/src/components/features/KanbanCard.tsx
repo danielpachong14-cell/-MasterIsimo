@@ -68,7 +68,7 @@ export function KanbanCard({ appointment, onClick }: KanbanCardProps) {
         <div className="flex justify-between items-start pl-2">
           <div className="space-y-1">
             <div className="bg-surface-container px-2 py-1 rounded text-[10px] font-black tracking-tighter text-on-surface-variant uppercase inline-block">
-              {appointment.license_plate}
+              {appointment.license_plate?.toUpperCase()}
             </div>
             <p className="font-bold text-on-surface line-clamp-1 leading-tight">
               {appointment.company_name}

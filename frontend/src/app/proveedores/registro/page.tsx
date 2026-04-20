@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Card } from "@/components/ui/Card"
-import { calculateDuration, getAvailableSlots } from "@/lib/services/scheduling"
+import { scheduleEngineAction } from "@/app/actions/scheduling"
+import { calculateDuration } from "@/lib/services/scheduling"
 import { capitalize, normalizeObjectForStorage } from "@/lib/utils"
 
 interface VehicleType {
@@ -97,9 +98,19 @@ export default function SupplierRegistrationPage() {
     
     setDurationInfo({ real: realMinutes, buffer: bufferMinutes })
 
-    // Motor logico
-    const slots = await getAvailableSlots(formData.scheduledDate, realMinutes)
-    setAvailableSlots(slots)
+    // Motor de scheduling seguro — se ejecuta como Server Action en el servidor
+    const result = await scheduleEngineAction({
+      date: formData.scheduledDate,
+      totalBoxes,
+      vehicleTypeId: parseInt(formData.vehicleTypeId),
+      environmentId: null,
+    })
+    // El slot data incluye dock_id/dock_name — mapeamos solo las horas para esta UI simplificada
+    setAvailableSlots(result.slots.map((s) => s.time))
+    // Sobrescribi la duración con el resultado del engine si fue más preciso
+    if (result.durationMinutes > 0) {
+      setDurationInfo({ real: result.durationMinutes, buffer: Math.ceil(result.durationMinutes * 1.5) })
+    }
     setLoading(false)
   }
 

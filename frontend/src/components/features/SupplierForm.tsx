@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { createClient } from "@/lib/supabase/client"
-import { runSchedulingEngine } from "@/lib/services/scheduling-engine"
-import type { VehicleType, Environment, ProductCategory, AvailableSlot, CapacityCheckResult, SchedulingRule } from "@/types"
+import { scheduleEngineAction } from "@/app/actions/scheduling"
+import type { VehicleType, Environment, AvailableSlot, CapacityCheckResult, SchedulingRule } from "@/types"
 
 interface ConfirmedAppointment {
   id: number;
@@ -38,11 +38,10 @@ const appointmentSchema = z.object({
   company_name: z.string().min(3, "Mínimo 3 caracteres"),
   vehicle_type_id: z.coerce.number().min(1, "Tipo de vehículo requerido"),
   environment_id: z.preprocess((v) => (v === "" ? null : v), z.coerce.number().optional().nullable()),
-  category_id: z.preprocess((v) => (v === "" ? null : v), z.coerce.number().optional().nullable()),
-  license_plate: z.string().min(3, "Placa requerida"),
+  license_plate: z.string().length(6, "La placa debe tener exactamente 6 caracteres (Ej: ABC123)"),
   driver_name: z.string().min(5, "Nombre completo"),
   driver_id_card: z.string().max(20, "Máximo 20 dígitos").regex(/^\d+$/, "Solo números permitidos").or(z.literal("")).optional(),
-  driver_phone: z.string().length(10, "Exactamente 10 números").regex(/^\d+$/, "Solo números permitidos"),
+  driver_phone: z.string().length(10, "El celular debe tener exactamente 10 números").regex(/^\d+$/, "Solo números permitidos"),
   purchase_orders: z.array(
     z.object({
       po_number: z.string().min(3, "Mínimo 3 caracteres").transform(v => v.trim().toUpperCase()),
@@ -66,7 +65,6 @@ export function SupplierForm() {
   // Reference data
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([])
   const [environments, setEnvironments] = useState<Environment[]>([])
-  const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loadingRef, setLoadingRef] = useState(true)
 
   // Scheduling engine results
@@ -98,7 +96,6 @@ export function SupplierForm() {
       purchase_orders: [{ po_number: "", box_count: 0 }],
       vehicle_type_id: 0,
       environment_id: null,
-      category_id: null,
       driver_id_card: "",
       driver_phone: ""
     }
@@ -109,19 +106,16 @@ export function SupplierForm() {
   const watchDate = watch("scheduled_date")
   const watchEnvId = watch("environment_id")
   const watchVehicleTypeId = watch("vehicle_type_id")
-  const watchCategoryId = watch("category_id")
 
   // Load reference data
   useEffect(() => {
     async function load() {
-      const [vRes, eRes, cRes] = await Promise.all([
+      const [vRes, eRes] = await Promise.all([
         supabase.from('vehicle_types').select('*').eq('is_active', true).order('name'),
         supabase.from('environments').select('*').eq('is_active', true).order('id'),
-        supabase.from('product_categories').select('*').eq('is_active', true).order('id'),
       ])
       if (vRes.data) setVehicleTypes(vRes.data)
       if (eRes.data) setEnvironments(eRes.data)
-      if (cRes.data) setCategories(cRes.data)
       setLoadingRef(false)
     }
     load()
@@ -139,11 +133,11 @@ export function SupplierForm() {
       setSelectedSlot(null)
       setValue("scheduled_time", "")
 
-      const result = await runSchedulingEngine({
+      // Invoca la Server Action — el engine se ejecuta 100% en el servidor
+      const result = await scheduleEngineAction({
         date: watchDate,
         environmentId: watchEnvId ? Number(watchEnvId) : null,
         vehicleTypeId: Number(watchVehicleTypeId) || null,
-        categoryId: watchCategoryId ? Number(watchCategoryId) : null,
         totalBoxes,
       })
 
@@ -155,7 +149,7 @@ export function SupplierForm() {
       setLoadingSlots(false)
     }
     calculate()
-  }, [step, watchDate, watchEnvId, watchVehicleTypeId, watchCategoryId, totalBoxes, setValue])
+  }, [step, watchDate, watchEnvId, watchVehicleTypeId, totalBoxes, setValue])
 
   // DUPLICATE PO CHECK LOGIC
   const watchPOs = watch("purchase_orders")
@@ -223,7 +217,7 @@ export function SupplierForm() {
 
   const nextStep = async () => {
     let fieldsToValidate: (keyof AppointmentForm)[] = []
-    if (step === 1) fieldsToValidate = ["company_name", "vehicle_type_id", "environment_id", "category_id", "license_plate", "driver_name", "driver_id_card", "driver_phone"]
+    if (step === 1) fieldsToValidate = ["company_name", "vehicle_type_id", "environment_id", "license_plate", "driver_name", "driver_id_card", "driver_phone"]
     if (step === 2) fieldsToValidate = ["purchase_orders"]
     
     const isValid = await trigger(fieldsToValidate)
@@ -275,7 +269,6 @@ export function SupplierForm() {
           estimated_duration_minutes: estimatedDuration,
           dock_id: selectedSlot.dock_id,
           environment_id: data.environment_id,
-          category_id: data.category_id,
           scheduling_rule_id: matchedRule?.id || null,
           requires_extended_hours: capacity?.requiresExtendedHours || false,
           status: 'PENDIENTE',
@@ -388,7 +381,7 @@ export function SupplierForm() {
                 { label: 'Fecha', value: confirmedAppointment.scheduled_date, icon: 'calendar_today' },
                 { label: 'Hora Arribo', value: confirmedAppointment.scheduled_time?.substring(0, 5), icon: 'schedule', color: 'text-primary' },
                 { label: 'Muelle', value: selectedSlot?.dock_name || "Asignado", icon: 'dock', color: 'text-tertiary' },
-                { label: 'Ambiente', value: environments.find(e => e.id === Number(confirmedAppointment.environment_id))?.display_name, icon: 'pin_drop' }
+                { label: 'Tipo de Carga', value: environments.find(e => e.id === Number(confirmedAppointment.environment_id))?.display_name, icon: 'pin_drop' }
               ].map((item, idx) => (
                 <div key={idx} className="space-y-1 group">
                   <div className="flex items-center gap-1.5">
@@ -496,7 +489,7 @@ export function SupplierForm() {
               />
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Ambiente (Opcional)</label>
+                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Tipo de Carga (Opcional)</label>
                   <select
                     className="flex w-full rounded-xl border border-surface-container bg-surface-container-low/10 text-on-surface p-4 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 h-[56px] appearance-none"
                     {...register("environment_id")}
@@ -509,20 +502,7 @@ export function SupplierForm() {
                   </select>
                   {errors.environment_id && <p className="text-xs text-error mt-1">{errors.environment_id.message}</p>}
                 </div>
-                <div>
-                  <label className="text-[10px] font-black tracking-widest uppercase text-primary/60 mb-2 block">Categoría de Producto (Opcional)</label>
-                  <select
-                    className="flex w-full rounded-xl border border-surface-container bg-surface-container-low/10 text-on-surface p-4 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 h-[56px] appearance-none"
-                    {...register("category_id")}
-                    disabled={loadingRef}
-                  >
-                    <option value="">-- Seleccionar --</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{toTitleCase(c.display_name)}</option>
-                    ))}
-                  </select>
-                  {errors.category_id && <p className="text-xs text-error mt-1">{errors.category_id.message}</p>}
-                </div>
+
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -541,8 +521,10 @@ export function SupplierForm() {
                 </div>
                 <Input 
                   label="Placa de Vehículo (Obligatorio)" 
-                  placeholder="ABC-123" 
+                  placeholder="ABC123" 
                   icon="format_list_numbered"
+                  maxLength={6}
+                  className="uppercase"
                   error={errors.license_plate?.message}
                   {...register("license_plate")}
                 />
@@ -564,8 +546,10 @@ export function SupplierForm() {
                 />
                 <Input 
                   label="Teléfono del Conductor (Obligatorio)" 
-                  placeholder="300 000 0000" 
+                  placeholder="3000000000" 
+                  type="tel"
                   icon="phone_iphone"
+                  maxLength={10}
                   error={errors.driver_phone?.message}
                   {...register("driver_phone")}
                 />

@@ -4,98 +4,111 @@ import { useState, useEffect, useCallback } from "react"
 import { KanbanBoard } from "@/components/features/KanbanBoard"
 import { Card } from "@/components/ui/Card"
 import { createClient } from "@/lib/supabase/client"
-import { Appointment, Dock, AppointmentStatus } from "@/types"
+import { AppointmentStatus, Dock } from "@/types"
 import { AppointmentDetailsModal } from "../trazabilidad/components/AppointmentDetailsModal"
+import {
+  KanbanAppointmentRow,
+  fetchKanbanAppointments,
+  buildStatusTransitionUpdates,
+} from "@/lib/services/appointments"
+
+// El Kanban DEBE ser Client Component: requiere Realtime (WebSocket) y DnD interactivo.
+// Las optimizaciones se centran en reducir el payload de cada cita ~80% via queries granulares.
 
 export default function KanbanPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [appointments, setAppointments] = useState<KanbanAppointmentRow[]>([])
   const [docks, setDocks] = useState<Dock[]>([])
-  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null)
+  // Usamos `KanbanAppointmentRow | null` para el modal de detalles.
+  // El modal de detalles acepta `Appointment` completo — lo casteamos ya que la proyección
+  // incluye todos los campos que el modal necesita para operar.
+  const [selectedAppt, setSelectedAppt] = useState<KanbanAppointmentRow | null>(null)
+
   const supabase = createClient()
 
-  // Centralized data fetching handling all uncompleted operations
+  // ─── Carga centralizada de datos ────────────────────────────
   const fetchData = useCallback(async () => {
-    // 1. Fetch appointments that are currently active (not finalized or cancelled)
-    const { data: apptData } = await supabase
-      .from('appointments')
-      .select('*, appointment_purchase_orders(*)')
-      .in('status', ['PENDIENTE', 'EN_PORTERIA', 'EN_MUELLE', 'DESCARGANDO'])
-      .order('created_at', { ascending: true })
+    // Obtenemos la fecha actual en la zona horaria del CEDI (Colombia)
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
 
-    if (apptData) setAppointments(apptData as Appointment[])
+    // Appointments: usa el servicio granular (solo 14 campos vs. 30+)
+    const apptData = await fetchKanbanAppointments(supabase, today)
+    setAppointments(apptData)
 
-    // 2. Fetch total active docks to calculate availability
+    // Docks: solo los campos necesarios para el cómputo de KPIs
     const { data: docksData } = await supabase
-      .from('docks')
-      .select('*')
-      .eq('is_active', true)
-      
+      .from("docks")
+      .select("id, name, is_active, type, is_unloading_authorized, priority, environment_id")
+      .eq("is_active", true)
+
     if (docksData) setDocks(docksData as Dock[])
   }, [supabase])
 
-  // Subscriptions for real-time operation
+  // ─── Realtime subscriptions ────────────────────────────────
   useEffect(() => {
     fetchData()
 
     const channelAppointments = supabase
-      .channel('appointments-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
-        fetchData()
-      })
-      .subscribe()
-      
-    const channelDocks = supabase
-      .channel('docks-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'docks' }, () => {
+      .channel("kanban-appointments")
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointments" }, () => {
         fetchData()
       })
       .subscribe()
 
-    return () => { 
+    const channelDocks = supabase
+      .channel("kanban-docks")
+      .on("postgres_changes", { event: "*", schema: "public", table: "docks" }, () => {
+        fetchData()
+      })
+      .subscribe()
+
+    return () => {
       supabase.removeChannel(channelAppointments)
       supabase.removeChannel(channelDocks)
     }
   }, [supabase, fetchData])
 
-  // --- KPI COMPUTATIONS ---
-  // 1. En Espera: Appointments that haven't reached the dock yet
-  const enEspera = appointments.filter(a => ['PENDIENTE', 'EN_PORTERIA'].includes(a.status)).length
+  // ─── KPI computations (derivados del estado local) ─────────
+  const enEspera = appointments.filter((a) =>
+    ["PENDIENTE", "EN_PORTERIA"].includes(a.status)
+  ).length
 
-  // 2. Muelles Libres: Total active docks minus appointments currently occupying a dock
-  const enMuelleOcupados = appointments.filter(a => ['EN_MUELLE', 'DESCARGANDO'].includes(a.status)).length
-  const totalActivos = docks.length || 12 // fallback visually if no docks
+  const enMuelleOcupados = appointments.filter((a) =>
+    ["EN_MUELLE", "DESCARGANDO"].includes(a.status)
+  ).length
+  const totalActivos = docks.length || 12
   const muellesLibres = Math.max(0, totalActivos - enMuelleOcupados)
-  
-  // 3. Eficiencia: Percentage of appointments that are not late
-  const totalEvaluados = appointments.filter(a => a.punctuality_status).length
-  const aTiempo = appointments.filter(a => a.punctuality_status && a.punctuality_status !== 'TARDE').length
-  const eficiencia = totalEvaluados > 0 
-    ? Math.round((aTiempo / totalEvaluados) * 100) 
-    : 100 // Default optimal base
 
-  // Unified Status Updater for the Board
+  const totalEvaluados = appointments.filter((a) => a.punctuality_status).length
+  const aTiempo = appointments.filter(
+    (a) => a.punctuality_status && a.punctuality_status !== "TARDE"
+  ).length
+  const eficiencia =
+    totalEvaluados > 0 ? Math.round((aTiempo / totalEvaluados) * 100) : 100
+
+  // ─── Actualizador de estado unificado ─────────────────────
+  // La lógica de timestamps de trazabilidad está centralizada en buildStatusTransitionUpdates.
   const updateAppointmentStatus = async (id: string, newStatus: AppointmentStatus) => {
-    // Collect updates based on current logic
-    const existing = appointments.find(a => a.id === id);
-    const updates: Record<string, unknown> = { status: newStatus };
-    
-    if (existing) {
-      if (newStatus === 'EN_PORTERIA' && !existing.arrival_time) updates.arrival_time = new Date().toISOString()
-      if (newStatus === 'EN_MUELLE' && !existing.docking_time) updates.docking_time = new Date().toISOString()
-      if (newStatus === 'DESCARGANDO' && !existing.start_unloading_time) updates.start_unloading_time = new Date().toISOString()
-      if (newStatus === 'FINALIZADO' && !existing.end_unloading_time) updates.end_unloading_time = new Date().toISOString()
-    }
-    
-    // Optimistic Update
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a))
-    
-    // Server Update
-    const { error } = await supabase
-      .from('appointments')
-      .update(updates)
-      .eq('id', id)
+    const existing = appointments.find((a) => a.id === id)
+    if (!existing) return
 
-    if (error) fetchData() // Revert state from server if it failed
+    const updates = buildStatusTransitionUpdates(existing, newStatus)
+
+    // Optimistic update: aplica el cambio en UI inmediatamente
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, ...updates } : a))
+    )
+
+    // Sincronización con servidor
+    const { error } = await supabase
+      .from("appointments")
+      .update(updates)
+      .eq("id", id)
+
+    // Revert si el servidor rechaza el cambio
+    if (error) {
+      console.error("[KanbanPage] Error updating status:", error)
+      fetchData()
+    }
   }
 
   return (
@@ -106,8 +119,8 @@ export default function KanbanPage() {
           <p className="text-xs font-bold tracking-[0.3em] text-primary/60 uppercase">Vista Operativa</p>
           <h1 className="text-5xl font-black font-headline tracking-tighter text-on-surface">PANEL DE PATIO</h1>
         </div>
-        
-        {/* Real-time Bento Stats Row */}
+
+        {/* Real-time Bento Stats */}
         <div className="flex flex-wrap gap-4">
           <Card className="px-6 py-4 flex items-center gap-4 bg-white/50 border-none shadow-ambient">
             <div className="w-12 h-12 rounded-xl bg-primary-fixed flex items-center justify-center">
@@ -118,6 +131,7 @@ export default function KanbanPage() {
               <p className="text-2xl font-black font-headline leading-none">{enEspera}</p>
             </div>
           </Card>
+
           <Card className="px-6 py-4 flex items-center gap-4 bg-white/50 border-none shadow-ambient">
             <div className="w-12 h-12 rounded-xl bg-tertiary-fixed flex items-center justify-center">
               <span className="material-symbols-outlined text-tertiary">stadium</span>
@@ -127,9 +141,20 @@ export default function KanbanPage() {
               <p className="text-2xl font-black font-headline leading-none">{muellesLibres}/{totalActivos}</p>
             </div>
           </Card>
-          <Card className={`px-6 py-4 flex items-center gap-4 ${eficiencia < 80 ? 'bg-error-container text-on-error-container' : 'bg-primary-container text-white'} border-none shadow-elevated transition-colors`}>
-            <div className={`w-12 h-12 rounded-xl ${eficiencia < 80 ? 'bg-error text-on-error' : 'bg-primary text-white'} flex items-center justify-center`}>
-              <span className="material-symbols-outlined">{eficiencia < 80 ? 'warning' : 'speed'}</span>
+
+          <Card
+            className={`px-6 py-4 flex items-center gap-4 ${
+              eficiencia < 80 ? "bg-error-container text-on-error-container" : "bg-primary-container text-white"
+            } border-none shadow-elevated transition-colors`}
+          >
+            <div
+              className={`w-12 h-12 rounded-xl ${
+                eficiencia < 80 ? "bg-error text-on-error" : "bg-primary text-white"
+              } flex items-center justify-center`}
+            >
+              <span className="material-symbols-outlined">
+                {eficiencia < 80 ? "warning" : "speed"}
+              </span>
             </div>
             <div className="flex flex-col">
               <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Eficiencia</p>
@@ -140,16 +165,17 @@ export default function KanbanPage() {
       </div>
 
       {/* Kanban Board Area */}
-      <KanbanBoard 
-        appointments={appointments} 
-        onStatusChange={updateAppointmentStatus} 
-        onCardClick={(appt) => setSelectedAppt(appt)}
+      <KanbanBoard
+        appointments={appointments as unknown as Parameters<typeof KanbanBoard>[0]['appointments']}
+        onStatusChange={updateAppointmentStatus}
+        onCardClick={(appt) => setSelectedAppt(appt as unknown as KanbanAppointmentRow)}
       />
 
-      <AppointmentDetailsModal 
+      <AppointmentDetailsModal
         isOpen={!!selectedAppt}
         onClose={() => setSelectedAppt(null)}
-        appointment={selectedAppt}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        appointment={selectedAppt as any}
         onSuccess={fetchData}
       />
     </div>

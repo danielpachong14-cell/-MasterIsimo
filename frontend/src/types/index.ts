@@ -24,10 +24,11 @@ export interface Appointment {
   driver_phone: string;
   status: AppointmentStatus;
   dock_id: number | null;
-  dock_name?: string;
+  dock_name?: string | null;
   is_walk_in?: boolean;
+  is_express?: boolean;
   environment_id?: number | null;
-  category_id?: number | null;
+
   is_forced_assignment?: boolean;
   force_reason?: string | null;
   requires_extended_hours?: boolean;
@@ -63,7 +64,6 @@ export interface SchedulingRequest {
   date: string
   environmentId?: number | null
   vehicleTypeId: number | null
-  categoryId: number | null
   totalBoxes: number
 }
 
@@ -177,8 +177,6 @@ export interface SchedulingRule {
   environment?: Environment;
   vehicle_type_id?: number | null;
   vehicle_type?: VehicleType;
-  category_id?: number | null;
-  category?: ProductCategory;
   min_boxes: number;
   max_boxes?: number | null;
   duration_minutes: number;
@@ -220,3 +218,9 @@ export interface UserActivityLog {
 }
 
 // Removed duplicated UserSession - now unified above
+
+// ─── Service-Layer Projections ───────────────────────────────
+// Para queries granulares (Kanban, Timeline de Muelles, etc.), ver:
+// → @/lib/services/appointments (KanbanAppointmentRow, TimelineAppointmentRow, TimelineDockRow)
+// Estos tipos son subconjuntos de Appointment y Dock definidos por el servicio de datos
+// para garantizar cero over-fetching en las vistas operativas.
