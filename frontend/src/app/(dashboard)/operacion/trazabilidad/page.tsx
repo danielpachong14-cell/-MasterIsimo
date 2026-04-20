@@ -62,15 +62,6 @@ export default function TrazabilidadPage() {
   // Quick Stats
   const [stats, setStats] = useState({ total: 0, pending: 0, finished: 0, walkins: 0 })
 
-  // Sistema de actualización automática cada minuto para los cronómetros "activos"
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTick(prev => prev + 1)
-    }, 60000)
-    return () => clearInterval(timer)
-  }, [])
 
   const calculateDuration = (start?: string | null, end?: string | null, isActive?: boolean) => {
     if (!start) return '--'
@@ -132,7 +123,7 @@ export default function TrazabilidadPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [fetchAppointments])
+  }, [fetchAppointments, supabase])
 
   useEffect(() => {
     const fetchVehicles = async () => {
@@ -140,7 +131,7 @@ export default function TrazabilidadPage() {
       if (data) setVehicleTypes(data as VehicleType[])
     }
     fetchVehicles()
-  }, [])
+  }, [supabase])
 
   // Manejo de Filtros de Texto con Debounce
   const handleTextFilter = (key: 'licensePlate' | 'companyName', value: string) => {

@@ -53,7 +53,7 @@ export async function assignDockAction({
   // 2. Cálculo Dinámico de Duración (Requisito del Veredicto)
   const targetDate = scheduledDate || appointment.scheduled_date
   // Sanitizar targetTime: Si viene de Postgres TIMETZ puede traer +00, tomamos solo HH:mm:ss
-  let rawTime = scheduledTime || appointment.scheduled_time || "00:00:00"
+  const rawTime = scheduledTime || appointment.scheduled_time || "00:00:00"
   const targetTime = rawTime.includes("+") ? rawTime.split("+")[0] : rawTime
 
   // Calcular totalBoxes real (Sumando POs si están disponibles)
@@ -114,7 +114,7 @@ export async function assignDockAction({
   }
 
   // 5. Preparar Updates con Trazabilidad (Helper buildStatusTransitionUpdates)
-  let updates: any = {
+  let updates: Record<string, unknown> = {
     dock_id: dockId,
     scheduled_date: targetDate,
     scheduled_time: targetTime,

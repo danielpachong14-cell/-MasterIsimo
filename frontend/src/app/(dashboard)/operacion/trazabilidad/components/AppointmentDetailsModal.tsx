@@ -48,7 +48,7 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
   const [isFinalizing, setIsFinalizing] = useState(false)
   const [finalNote, setFinalNote] = useState("")
   const [availableDocks, setAvailableDocks] = useState<DockSelectionRow[]>([])
-  const [isLoadingDocks, setIsLoadingDocks] = useState(false)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
   const [selectedDockId, setSelectedDockId] = useState<number | null>(null)
   const [isAssigningDock, setIsAssigningDock] = useState(false)
   const [showForceReason, setShowForceReason] = useState(false)
@@ -57,18 +57,8 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
   const [rescheduleDate, setRescheduleDate] = useState<string>("")
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
 
   const supabase = createClient()
-
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    if (!isOpen) return
-    const timer = setInterval(() => {
-      setTick(prev => prev + 1)
-    }, 60000)
-    return () => clearInterval(timer)
-  }, [isOpen])
 
   useEffect(() => {
     if (appointment) {
@@ -80,14 +70,11 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
   useEffect(() => {
     async function loadDocks() {
       if (!isOpen || !currentAppointment?.environment_id) return
-      setIsLoadingDocks(true)
       try {
         const docks = await fetchActiveDocks(supabase, currentAppointment.environment_id)
         setAvailableDocks(docks)
       } catch (err) {
         console.error("Error loading docks:", err)
-      } finally {
-        setIsLoadingDocks(false)
       }
     }
     loadDocks()
@@ -119,16 +106,20 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: string, err?: Error) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`Subscribed to ${channelName}`)
+          console.log(`[Realtime] Suscrito exitosamente a: ${channelName}`)
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`[Realtime] Fallo en la suscripción de: ${channelName}`, err)
+        } else if (status === 'TIMED_OUT') {
+          console.warn(`[Realtime] Se agotó el tiempo de espera para: ${channelName}`)
         }
       })
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [isOpen, appointment?.id])
+  }, [isOpen, appointment?.id, supabase])
 
   useEffect(() => {
     if (currentAppointment) {
@@ -281,7 +272,6 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
     if (!currentAppointment || !finalNote.trim()) return
 
     setSaving(true)
-    const originalAppointment = { ...currentAppointment }
 
     try {
       const timestamp = new Date().toLocaleString('es-CO', { 
