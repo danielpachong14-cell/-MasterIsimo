@@ -64,6 +64,28 @@ export interface TimelineDockRow {
   environment_id: number | null
 }
 
+/**
+ * Utilidad interna para aplanar la respuesta relacional de Supabase (docks.name -> dock_name).
+ * Centraliza la lógica para que las funciones de fetch sean limpias y coherentes.
+ */
+function flattenAppointment<T>(data: Record<string, unknown>): T {
+  const rawDock = data.docks as { name: string } | { name: string }[] | undefined | null
+  let dockName: string | null = null
+
+  if (rawDock) {
+    dockName = Array.isArray(rawDock) 
+      ? (rawDock[0]?.name || null) 
+      : (rawDock.name || null)
+  }
+
+  // Retornamos una copia del objeto sin la propiedad 'docks' y con 'dock_name' aplanado
+  const { docks, ...flattened } = data
+  return {
+    ...flattened,
+    dock_name: dockName
+  } as unknown as T
+}
+
 // ─── Selects granulares (strings constantes para reutilización) ───────────────
 
 /** Campos mínimos para el tablero Kanban */
@@ -163,21 +185,8 @@ export async function fetchKanbanAppointments(
     return []
   }
 
-  // Aplanar el resultado relacional de docks(name) -> dock_name (Robusto ante objeto o array)
-  const rows = data as unknown as (Record<string, unknown> & { docks?: { name: string } | { name: string }[] })[]
-  
-  return (rows ?? []).map((row) => {
-    const rawDock = row.docks
-    const dockName = Array.isArray(rawDock) 
-      ? rawDock[0]?.name 
-      : (rawDock as { name: string })?.name
-
-    return {
-      ...row,
-      dock_name: dockName || null,
-      docks: undefined // Limpiar el objeto anidado
-    }
-  }) as unknown as KanbanAppointmentRow[]
+  // Aplanar el resultado relacional usando la utilidad centralizada
+  return (data ?? []).map(row => flattenAppointment<KanbanAppointmentRow>(row as Record<string, unknown>))
 }
 
 /**
@@ -200,16 +209,7 @@ export async function fetchAppointmentById(
   }
 
   // Aplanar resultado: Extraemos docks y devolvemos el resto con dock_name al primer nivel
-  const row = data as unknown as (Record<string, unknown> & { docks?: { name: string } | { name: string }[] })
-  const { docks, ...baseData } = row
-  const dockName = Array.isArray(docks) 
-    ? docks[0]?.name 
-    : (docks as { name: string })?.name
-
-  return {
-    ...baseData,
-    dock_name: dockName || null
-  }
+  return flattenAppointment<Appointment>(data as Record<string, unknown>)
 }
 
 /**
