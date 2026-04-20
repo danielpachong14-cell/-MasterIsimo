@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/Card"
 import { createClient } from "@/lib/supabase/client"
 import { AppointmentStatus, Dock } from "@/types"
 import { AppointmentDetailsModal } from "../trazabilidad/components/AppointmentDetailsModal"
+import { useUIStore } from "@/store/uiStore"
+import { Appointment } from "@/types"
 import {
   KanbanAppointmentRow,
   fetchKanbanAppointments,
@@ -18,10 +20,8 @@ import {
 export default function KanbanPage() {
   const [appointments, setAppointments] = useState<KanbanAppointmentRow[]>([])
   const [docks, setDocks] = useState<Dock[]>([])
-  // Usamos `KanbanAppointmentRow | null` para el modal de detalles.
-  // El modal de detalles acepta `Appointment` completo — lo casteamos ya que la proyección
-  // incluye todos los campos que el modal necesita para operar.
-  const [selectedAppt, setSelectedAppt] = useState<KanbanAppointmentRow | null>(null)
+  // Actions y State del store global
+  const openAppointmentDetails = useUIStore((s) => s.openAppointmentDetails)
 
   const supabase = createClient()
 
@@ -168,14 +168,10 @@ export default function KanbanPage() {
       <KanbanBoard
         appointments={appointments as unknown as Parameters<typeof KanbanBoard>[0]['appointments']}
         onStatusChange={updateAppointmentStatus}
-        onCardClick={(appt) => setSelectedAppt(appt as unknown as KanbanAppointmentRow)}
+        onCardClick={(appt) => openAppointmentDetails(appt as unknown as Appointment)}
       />
 
       <AppointmentDetailsModal
-        isOpen={!!selectedAppt}
-        onClose={() => setSelectedAppt(null)}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        appointment={selectedAppt as any}
         onSuccess={fetchData}
       />
     </div>
