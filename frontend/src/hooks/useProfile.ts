@@ -65,10 +65,18 @@ export function useProfile() {
           schema: 'public', 
           table: 'user_profiles',
           filter: `id=eq.${session.user.id}`
-        }, (payload) => {
+        }, (payload: { new: Record<string, any> }) => {
           setProfile(prev => prev ? { ...prev, ...payload.new } : null)
         })
-        .subscribe()
+        .subscribe((status: string, err?: Error) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[Realtime] Perfil suscrito exitosamente')
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('[Realtime] Error en canal de perfil:', err)
+          } else if (status === 'TIMED_OUT') {
+            console.warn('[Realtime] Tiempo de espera agotado en canal de perfil')
+          }
+        })
     }
 
     setupSubscription()
