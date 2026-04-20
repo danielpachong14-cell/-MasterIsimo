@@ -60,6 +60,7 @@ export default function TrazabilidadPage() {
   const [stats, setStats] = useState({ total: 0, pending: 0, finished: 0, walkins: 0 })
 
   // Sistema de actualización automática cada minuto para los cronómetros "activos"
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [tick, setTick] = useState(0)
   useEffect(() => {
     const timer = setInterval(() => {

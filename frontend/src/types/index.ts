@@ -25,13 +25,13 @@ export interface Appointment {
   status: AppointmentStatus;
   dock_id: number | null;
   dock_name?: string | null;
-  is_walk_in?: boolean;
-  is_express?: boolean;
+  is_walk_in?: boolean | null;
+  is_express?: boolean | null;
   environment_id?: number | null;
 
-  is_forced_assignment?: boolean;
+  is_forced_assignment?: boolean | null;
   force_reason?: string | null;
-  requires_extended_hours?: boolean;
+  requires_extended_hours?: boolean | null;
   scheduling_rule_id?: number | null;
   created_at: string;
   updated_at: string;

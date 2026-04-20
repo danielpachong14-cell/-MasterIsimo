@@ -84,10 +84,9 @@ function flattenAppointment<T>(data: RawAppointmentRow<T>): T {
     dockName = Array.isArray(rawDock)
       ? (rawDock[0]?.name ?? null)
       : (rawDock.name ?? null)
-  }
-
-  // Extraer docks usando destructuración segura (sin warnings de unused-vars omitiendo intencionalmente)
-  const { docks: _docks, ...rest } = data as Record<string, unknown>
+  // Extraer docks de forma segura para omitirlo en el objeto resultante
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { docks, ...rest } = data as Record<string, unknown>
 
   return {
     ...rest,

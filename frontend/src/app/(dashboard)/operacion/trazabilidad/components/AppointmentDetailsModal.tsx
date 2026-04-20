@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect } from "react"
 import { Appointment, AppointmentStatus } from "@/types"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
@@ -40,6 +40,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
   const supabase = createClient()
 
   // Sistema de actualización automática cada minuto para los cronómetros "activos"
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [tick, setTick] = useState(0)
   useEffect(() => {
     if (!isOpen) return
@@ -93,7 +94,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       setNoteHistory(currentAppointment.notes || currentAppointment.comments || "")
       setNewNote("")
     }
-  }, [currentAppointment?.id, currentAppointment?.notes])
+  }, [currentAppointment])
 
   if (!isOpen || !currentAppointment) return null
 
