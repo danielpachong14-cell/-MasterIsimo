@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { AppointmentStatus } from "@/types"
+import type { AppointmentStatus, Appointment } from "@/types"
 
 /**
  * Proyección granular de Appointment para el tablero Kanban.
@@ -265,7 +265,7 @@ export async function fetchTimelineDocks(
  * @returns El objeto de updates aplicado, para optimistic update en el cliente.
  */
 export function buildStatusTransitionUpdates(
-  currentRecord: { status: AppointmentStatus; arrival_time?: string | null; docking_time?: string | null; start_unloading_time?: string | null; end_unloading_time?: string | null },
+  currentRecord: Partial<Appointment>,
   newStatus: AppointmentStatus
 ): Record<string, unknown> {
   const now = new Date().toISOString()

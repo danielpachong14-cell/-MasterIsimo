@@ -175,7 +175,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     setSaving(true)
     
     // 1. UI Optimista: Actualizamos estado local inmediatamente
-    const updates = buildStatusTransitionUpdates(currentAppointment as unknown as KanbanAppointmentRow, nextStatus)
+    const updates = buildStatusTransitionUpdates(currentAppointment, nextStatus)
     const originalAppointment = { ...currentAppointment }
     
     setCurrentAppointment({
@@ -217,7 +217,7 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       const updatedNotes = noteHistory ? `${noteHistory}\n\n${formattedNote}` : formattedNote;
 
       // Usar lógica centralizada + notas
-      const baseUpdates = buildStatusTransitionUpdates(currentAppointment as unknown as KanbanAppointmentRow, 'FINALIZADO' as AppointmentStatus)
+      const baseUpdates = buildStatusTransitionUpdates(currentAppointment, 'FINALIZADO' as AppointmentStatus)
       const updates = {
         ...baseUpdates,
         notes: updatedNotes

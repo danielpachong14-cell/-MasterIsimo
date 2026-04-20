@@ -219,7 +219,7 @@ export default function TrazabilidadPage() {
       const { data: { user } } = await supabase.auth.getUser()
       
       // 1. Lógica centralizada de transiciones (KPIs)
-      const updates = buildStatusTransitionUpdates(appointment as unknown as KanbanAppointmentRow, newStatus as AppointmentStatus)
+      const updates = buildStatusTransitionUpdates(appointment, newStatus as AppointmentStatus)
 
       const { error: updateError } = await supabase
         .from('appointments')
