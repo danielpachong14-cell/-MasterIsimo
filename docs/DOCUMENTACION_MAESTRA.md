@@ -1,6 +1,6 @@
 # Documentación Maestra: MasterIsimo CEDI 🛡️
 
-Este documento consolida el conocimiento técnico y operativo del Sistema de Gestión de Patio (YMS) v3.0.
+Este documento consolida el conocimiento técnico y operativo del Sistema de Gestión de Patio (YMS) v3.1.
 
 ## 📂 Índice de Documentación Technical (SSoT)
 
@@ -34,7 +34,7 @@ Dada la arquitectura de carpetas que aísla la capa web de otras documentaciones
 
 ---
 
-## 🚀 Resumen Técnico (v3.0)
+## 🚀 Resumen Técnico (v3.1)
 
 | Componente | Tecnología | Responsabilidad |
 | :--- | :--- | :--- |
@@ -53,4 +53,4 @@ Dada la arquitectura de carpetas que aísla la capa web de otras documentaciones
 3. **Integración WMS:** Sincronización de llegada con órdenes de recibo reales.
 
 ---
-*Ultima actualización: Abril 2026 - Consolidación de Documentación v3.0*
+*Ultima actualización: Abril 2026 - Consolidación de Documentación v3.1 (Public Access Release)*

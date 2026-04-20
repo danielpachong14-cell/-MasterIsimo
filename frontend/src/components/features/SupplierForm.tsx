@@ -38,14 +38,16 @@ const appointmentSchema = z.object({
   company_name: z.string().min(3, "Mínimo 3 caracteres"),
   vehicle_type_id: z.coerce.number().min(1, "Tipo de vehículo requerido"),
   environment_id: z.preprocess((v) => (v === "" ? null : v), z.coerce.number().optional().nullable()),
-  license_plate: z.string().length(6, "La placa debe tener exactamente 6 caracteres (Ej: ABC123)"),
+  license_plate: z.string()
+    .length(6, "La placa debe tener exactamente 6 caracteres (Ej: ABC123)")
+    .regex(/^[A-Za-z0-9]+$/, "La placa solo puede contener letras y números"),
   driver_name: z.string().min(5, "Nombre completo"),
   driver_id_card: z.string().max(20, "Máximo 20 dígitos").regex(/^\d+$/, "Solo números permitidos").or(z.literal("")).optional(),
   driver_phone: z.string().length(10, "El celular debe tener exactamente 10 números").regex(/^\d+$/, "Solo números permitidos"),
   purchase_orders: z.array(
     z.object({
       po_number: z.string().min(3, "Mínimo 3 caracteres").transform(v => v.trim().toUpperCase()),
-      box_count: z.coerce.number().min(1, "Mínimo 1 caja")
+      box_count: z.coerce.number().min(1, "Mínimo 1 caja").max(50000, "Límite excedido (50k)")
     })
   ).min(1, "Agrega al menos una orden"),
   scheduled_date: z.string().min(1, "Fecha requerida"),

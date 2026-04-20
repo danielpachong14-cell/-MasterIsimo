@@ -50,5 +50,6 @@ Interfaz de auto-servicio para transportadores y proveedores.
   1. **Datos del vehículo:** Placas y tipo.
   2. **Carga:** Ingreso de Órdenes de Compra (OC).
   3. **Reserva:** Selección de Slot garantizado.
-- **Seguridad:** El cálculo de disponibilidad se realiza exclusivamente en el servidor vía **Server Actions**, protegiendo la lógica de colisión y las reglas de negocio.
+- **Portal de Acceso Público:** Las rutas `/proveedores` y `/p/check-in` están habilitadas para acceso **100% público** (whitelisted vía middleware), permitiendo que transportadores externos operen sin necesidad de credenciales del CEDI.
+- **Seguridad:** El cálculo de disponibilidad se realiza exclusivamente en el servidor vía **Server Actions**, protegiendo la lógica de colisión y las reglas de negocio. La integridad de las transacciones depende de validaciones estrictas con **Zod** y políticas de **RLS** en la base de datos.
 - **Resultado:** Generación de un voucher digital con ID de cita para ingreso a portería.

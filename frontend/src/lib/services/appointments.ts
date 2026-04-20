@@ -65,6 +65,17 @@ export interface TimelineDockRow {
 }
 
 /**
+ * Proyección granular de Dock para el selector de muelle.
+ * Limitado estrictamente a identidad y compatibilidad técnica (zero over-fetching).
+ */
+export interface DockSelectionRow {
+  id: number
+  name: string
+  environment_id: number | null
+  supported_vehicle_types: number[] | null
+}
+
+/**
  * Forma cruda de la respuesta de Supabase cuando se solicita una cita con join a docks.
  * Utiliza un genérico T para mantener el tipado fuerte de la proyección solicitada.
  */
@@ -136,6 +147,9 @@ const TIMELINE_SELECT = `
 
 /** Campos mínimos para muelles en la vista de timeline */
 const TIMELINE_DOCK_SELECT = "id, name, is_active, type, is_unloading_authorized, priority, environment_id"
+
+/** Campos para el selector de muelles (zero over-fetching) */
+const DOCK_SELECTION_SELECT = "id, name, environment_id, supported_vehicle_types"
 
 /** Campos para el modal de detalles de cita */
 const DETAILS_SELECT = `
@@ -269,6 +283,36 @@ export async function fetchTimelineDocks(
 
   if (error) {
     console.error("[AppointmentsService] Error fetching timeline docks:", error)
+    return []
+  }
+
+  return data ?? []
+}
+
+/**
+ * Obtiene los muelles activos filtrados por ambiente (opcional).
+ * Implementado para el selector de muelles del modal de detalles.
+ */
+export async function fetchActiveDocks(
+  supabase: SupabaseClient,
+  environmentId?: number | null
+): Promise<DockSelectionRow[]> {
+  let query = supabase
+    .from("docks")
+    .select(DOCK_SELECTION_SELECT)
+    .eq("is_active", true)
+
+  if (environmentId !== undefined && environmentId !== null) {
+    query = query.eq("environment_id", environmentId)
+  }
+
+  const { data, error } = await query
+    .order("priority")
+    .order("name")
+    .returns<DockSelectionRow[]>()
+
+  if (error) {
+    console.error("[AppointmentsService] Error fetching selection docks:", error)
     return []
   }
 

@@ -13,6 +13,7 @@ import { EditAppointmentModal } from "./components/EditAppointmentModal"
 import { DeleteAppointmentModal } from "./components/DeleteAppointmentModal"
 import { AppointmentDetailsModal } from "./components/AppointmentDetailsModal"
 import { ScheduleSupplierModal } from "@/components/ui/ScheduleSupplierModal"
+import { useUIStore } from "@/store/uiStore"
 import { buildStatusTransitionUpdates } from "@/lib/services/appointments"
 import { AppointmentStatus } from "@/types"
 
@@ -49,7 +50,9 @@ export default function TrazabilidadPage() {
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
   const [editAppt, setEditAppt] = useState<Appointment | null>(null)
   const [deleteAppt, setDeleteAppt] = useState<Appointment | null>(null)
-  const [detailsAppt, setDetailsAppt] = useState<Appointment | null>(null)
+
+  // Zustand Modal Control
+  const { openAppointmentDetails } = useUIStore()
 
   // Frontend Multi-Column Sequential Sorting
   type SortColumn = 'id' | 'empresa' | 'logistica' | 'tiempos' | 'ubicacion';
@@ -117,8 +120,9 @@ export default function TrazabilidadPage() {
     fetchAppointments()
 
     // Realtime subscription for auto check-in and dashboard updates
+    const channelName = `public-appointments-trazabilidad-${Math.random().toString(36).substring(7)}`
     const channel = supabase
-      .channel('public:appointments')
+      .channel(channelName)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
          // Silently fetch to keep the UI up-to-date with new Check-Ins
          fetchAppointments()
@@ -128,15 +132,15 @@ export default function TrazabilidadPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [fetchAppointments, supabase])
+  }, [fetchAppointments])
 
   useEffect(() => {
     const fetchVehicles = async () => {
       const { data } = await supabase.from('vehicle_types').select('*').eq('is_active', true)
-      if (data) setVehicleTypes(data)
+      if (data) setVehicleTypes(data as VehicleType[])
     }
     fetchVehicles()
-  }, [supabase])
+  }, [])
 
   // Manejo de Filtros de Texto con Debounce
   const handleTextFilter = (key: 'licensePlate' | 'companyName', value: string) => {
@@ -403,7 +407,7 @@ export default function TrazabilidadPage() {
                     </td>
                   </tr>
                 ) : sortedData.map((a) => (
-                  <tr key={a.id} onClick={() => setDetailsAppt(a)} className={cn(
+                  <tr key={a.id} onClick={() => openAppointmentDetails(a)} className={cn(
                     "group hover:bg-white transition-colors cursor-pointer",
                     a.is_walk_in ? "bg-amber-50/30" : ""
                   )}>
@@ -617,9 +621,6 @@ export default function TrazabilidadPage() {
       />
 
       <AppointmentDetailsModal 
-        isOpen={!!detailsAppt}
-        onClose={() => setDetailsAppt(null)}
-        appointment={detailsAppt}
         onSuccess={fetchAppointments}
       />
 

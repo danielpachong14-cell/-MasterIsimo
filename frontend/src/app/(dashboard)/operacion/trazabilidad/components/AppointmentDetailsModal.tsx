@@ -3,12 +3,13 @@ import { Appointment, AppointmentStatus } from "@/types"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
 import { cn, formatTime, capitalize } from "@/lib/utils"
-import { fetchAppointmentById, buildStatusTransitionUpdates } from "@/lib/services/appointments"
+import { fetchAppointmentById, buildStatusTransitionUpdates, fetchActiveDocks, DockSelectionRow } from "@/lib/services/appointments"
+import { assignDockAction } from "@/app/actions/appointments"
+import { scheduleEngineAction } from "@/app/actions/scheduling"
+import { AvailableSlot } from "@/types"
+import { useUIStore } from "@/store/uiStore"
 
 interface AppointmentDetailsModalProps {
-  isOpen: boolean
-  onClose: () => void
-  appointment: Appointment | null
   onSuccess?: () => void
 }
 
@@ -26,7 +27,16 @@ const NEXT_ACTION_LABELS: Record<string, { label: string, icon: string, color: s
   'FINALIZADO': { label: 'FINALIZAR OPERACIÓN', icon: 'check_circle', color: 'bg-emerald-500 text-white border-emerald-400' }
 };
 
-export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSuccess }: AppointmentDetailsModalProps) {
+export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalProps) {
+  // ─── Zustand Store ───────────────────────
+  const { 
+    selectedAppointment: appointment, 
+    isAppointmentModalOpen: isOpen, 
+    closeAppointmentDetails: onClose,
+    isAdvancedSchedulingMode: isAdvancedMode,
+    setAdvancedSchedulingMode: setIsAdvancedMode
+  } = useUIStore()
+
   // ─── Estado Reactivo & Sincronización ───────────────────────
   const [currentAppointment, setCurrentAppointment] = useState<Appointment | null>(appointment)
   const [newNote, setNewNote] = useState("")
@@ -37,10 +47,20 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
   const [saving, setSaving] = useState(false)
   const [isFinalizing, setIsFinalizing] = useState(false)
   const [finalNote, setFinalNote] = useState("")
+  const [availableDocks, setAvailableDocks] = useState<DockSelectionRow[]>([])
+  const [isLoadingDocks, setIsLoadingDocks] = useState(false)
+  const [selectedDockId, setSelectedDockId] = useState<number | null>(null)
+  const [isAssigningDock, setIsAssigningDock] = useState(false)
+  const [showForceReason, setShowForceReason] = useState(false)
+  const [forceReason, setForceReason] = useState("")
+  
+  const [rescheduleDate, setRescheduleDate] = useState<string>("")
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
+  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
+  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+
   const supabase = createClient()
 
-  // Sistema de actualización automática cada minuto para los cronómetros "activos"
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [tick, setTick] = useState(0)
   useEffect(() => {
     if (!isOpen) return
@@ -50,19 +70,38 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     return () => clearInterval(timer)
   }, [isOpen])
 
-  // Sincronizar estado local con prop inicial
   useEffect(() => {
     if (appointment) {
       setCurrentAppointment(appointment)
+      setSelectedDockId(appointment.dock_id)
     }
   }, [appointment])
 
-  // Suscripción Real-time para cambios externos (ej. desde Kanban)
+  useEffect(() => {
+    async function loadDocks() {
+      if (!isOpen || !currentAppointment?.environment_id) return
+      setIsLoadingDocks(true)
+      try {
+        const docks = await fetchActiveDocks(supabase, currentAppointment.environment_id)
+        setAvailableDocks(docks)
+      } catch (err) {
+        console.error("Error loading docks:", err)
+      } finally {
+        setIsLoadingDocks(false)
+      }
+    }
+    loadDocks()
+  }, [isOpen, currentAppointment?.environment_id, supabase])
+
   useEffect(() => {
     if (!isOpen || !appointment?.id) return
 
-    const channel = supabase
-      .channel(`appt-modal-${appointment.id}`)
+    // Usar un nonce/timestamp para asegurar que el canal sea único por cada montaje del componente
+    // Evita el error "cannot add callbacks after subscribe" al no reusar canales cacheados que aún estén suscribiéndose
+    const channelName = `appt-modal-${appointment.id}-${Math.random().toString(36).substring(7)}`
+    const channel = supabase.channel(channelName)
+
+    channel
       .on(
         'postgres_changes',
         {
@@ -72,31 +111,65 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
           filter: `id=eq.${appointment.id}`
         },
         async () => {
-          // Re-fetch ligero para obtener estructura aplanada y POs frescas
-          const updated = await fetchAppointmentById(supabase, appointment.id)
+          const updated = await fetchAppointmentById(supabase, appointment.id!)
           if (updated) {
             setCurrentAppointment(updated)
-            // Sincronizar historial de notas si cambió externamente
             setNoteHistory(updated.notes || updated.comments || "")
+            setSelectedDockId(updated.dock_id)
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Subscribed to ${channelName}`)
+        }
+      })
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [isOpen, appointment?.id, supabase])
+  }, [isOpen, appointment?.id])
 
-  // Sincronizar notas cuando cambia el registro (interna o externamente)
   useEffect(() => {
     if (currentAppointment) {
       setNoteHistory(currentAppointment.notes || currentAppointment.comments || "")
       setNewNote("")
+      if (!rescheduleDate && currentAppointment.scheduled_date) {
+        setRescheduleDate(currentAppointment.scheduled_date)
+      }
     }
-  }, [currentAppointment])
+  }, [currentAppointment, rescheduleDate])
+
+  useEffect(() => {
+    if (!isAdvancedMode || !rescheduleDate || !currentAppointment) return
+
+    async function loadSlots() {
+      setIsLoadingSlots(true)
+      try {
+        const calculatedTotalBoxes = currentAppointment!.appointment_purchase_orders?.reduce(
+          (sum, po) => sum + (po.box_count || 0),
+          0
+        ) || currentAppointment!.box_count || 0
+
+        const result = await scheduleEngineAction({
+          date: rescheduleDate,
+          environmentId: currentAppointment!.environment_id ?? null,
+          vehicleTypeId: currentAppointment!.vehicle_type_id ?? null,
+          totalBoxes: calculatedTotalBoxes,
+        })
+        setAvailableSlots(result.slots)
+      } catch (error) {
+        console.error("Error loading slots:", error)
+      } finally {
+        setIsLoadingSlots(false)
+      }
+    }
+    loadSlots()
+  }, [isAdvancedMode, rescheduleDate, currentAppointment])
 
   if (!isOpen || !currentAppointment) return null
+
+  // ─── Handlers ──────────────────────────────────────────────
 
   const handleSaveNotes = async () => {
     if (!newNote.trim() || !currentAppointment) return
@@ -111,7 +184,6 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       const noteEntry = `[${timestamp}] ${newNote.trim()}`
       const updatedNotes = noteHistory ? `${noteHistory}\n${noteEntry}` : noteEntry
       
-      // UI Optimista
       setNoteHistory(updatedNotes)
       setNewNote("")
 
@@ -143,7 +215,6 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     setSaving(true)
     const originalNotes = noteHistory
     try {
-      // UI Optimista
       setNoteHistory(editingContent)
       setIsEditingHistory(false)
 
@@ -168,6 +239,11 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     const nextStatus = STATUS_SEQUENCE[currentAppointment.status] as AppointmentStatus
     if (!nextStatus) return
 
+    if ((nextStatus === 'EN_MUELLE' || nextStatus === 'DESCARGANDO') && !currentAppointment.dock_id) {
+      alert("⚠️ REGLA OPERATIVA: Debe asignar un muelle físico antes de ingresar a muelle o iniciar descarga.")
+      return
+    }
+
     if (nextStatus === 'FINALIZADO') {
       setIsFinalizing(true)
       return
@@ -175,7 +251,6 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
 
     setSaving(true)
     
-    // 1. UI Optimista: Actualizamos estado local inmediatamente
     const updates = buildStatusTransitionUpdates(currentAppointment, nextStatus)
     const originalAppointment = { ...currentAppointment }
     
@@ -185,7 +260,6 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
     } as Appointment)
 
     try {
-      // 2. Persistencia en Servidor
       const { error } = await supabase
         .from('appointments')
         .update(updates)
@@ -240,12 +314,41 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
       onSuccess?.()
       setIsFinalizing(false)
       setFinalNote("")
-    } catch (e: unknown) {
-      setCurrentAppointment(originalAppointment)
-      const error = e as Error
-      alert("Error al finalizar operación: " + error.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAssignDock = async (force: boolean = false) => {
+    if (!currentAppointment || !selectedDockId) return
+
+    setIsAssigningDock(true)
+    try {
+      const result = await assignDockAction({
+        appointmentId: currentAppointment.id,
+        dockId: selectedDockId,
+        scheduledDate: isAdvancedMode ? rescheduleDate : undefined,
+        scheduledTime: isAdvancedMode && selectedTime ? `${selectedTime}:00` : undefined,
+        forceReason: force ? forceReason : undefined
+      })
+
+      if (result.success) {
+        onSuccess?.()
+        setShowForceReason(false)
+        setForceReason("")
+        // El re-fetch real-time se encargará de actualizar el estado local
+      } else {
+        if (result.isConflict && !force) {
+          setShowForceReason(true)
+        } else {
+          alert(result.error)
+        }
+      }
+    } catch (err) {
+      console.error("Error in assignDockAction:", err)
+      alert("Error de comunicación con el servidor.")
+    } finally {
+      setIsAssigningDock(false)
     }
   }
 
@@ -491,16 +594,161 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                     </div>
                   </div>
                   <div className="col-span-2 pt-4 border-t border-surface-container/50">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Muelle Asignado</p>
-                        {currentAppointment.dock_name ? (
-                          <span className="inline-flex items-center gap-1.5 font-black text-tertiary bg-tertiary/10 border border-tertiary/20 px-3 py-1.5 rounded-lg text-sm">
-                            <span className="material-symbols-outlined text-[18px]">meeting_room</span>
-                            {currentAppointment.dock_name}
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-bold text-on-surface-variant uppercase mb-1">Muelle {isAdvancedMode ? 'y Horario' : 'Asignado'}</p>
+                          <div className="flex items-center gap-2">
+                            {!isAdvancedMode ? (
+                              <select
+                                title="Seleccionar muelle"
+                                value={selectedDockId || ""}
+                                disabled={isAssigningDock || currentAppointment.status === 'FINALIZADO'}
+                                onChange={(e) => setSelectedDockId(e.target.value ? parseInt(e.target.value) : null)}
+                                className={cn(
+                                  "text-sm font-bold h-10 px-3 rounded-xl border border-surface-container bg-white focus:ring-2 focus:ring-primary/20 outline-none transition-all",
+                                  !selectedDockId && "text-on-surface-variant italic font-normal"
+                                )}
+                              >
+                                <option value="">Sin asignar</option>
+                                {/* Inyectar muelle actual si no está en la lista (evita glitch de "Sin asignar") */}
+                                {currentAppointment.dock_id && !availableDocks.some(d => d.id === currentAppointment.dock_id) && (
+                                  <option value={currentAppointment.dock_id}>
+                                    {currentAppointment.dock_name || `Muelle ${currentAppointment.dock_id}`} (Actual)
+                                  </option>
+                                )}
+                                {availableDocks.map(dock => (
+                                  <option key={dock.id} value={dock.id}>{dock.name}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary text-xl">event_upcoming</span>
+                                <input
+                                  type="date"
+                                  value={rescheduleDate}
+                                  onChange={(e) => setRescheduleDate(e.target.value)}
+                                  className="text-sm font-bold h-10 px-3 rounded-xl border border-surface-container bg-white focus:ring-2 focus:ring-primary/20 outline-none"
+                                />
+                              </div>
+                            )}
+
+                            {(selectedDockId !== currentAppointment.dock_id || (isAdvancedMode && selectedTime)) && (
+                              <button
+                                onClick={() => handleAssignDock(false)}
+                                disabled={isAssigningDock}
+                                className="bg-primary text-white p-2 rounded-xl hover:scale-105 active:scale-95 transition-all shadow-sm flex items-center gap-1 pr-3"
+                                title="Guardar Cambios"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">
+                                  {isAssigningDock ? 'autorenew' : 'save'}
+                                </span>
+                                <span className="text-[10px] font-black uppercase">Confirmar</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setIsAdvancedMode(!isAdvancedMode)}
+                          disabled={currentAppointment.status === 'FINALIZADO'}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all",
+                            isAdvancedMode 
+                              ? "bg-primary text-white shadow-md ring-2 ring-primary/20" 
+                              : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+                          )}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">
+                            {isAdvancedMode ? 'bolt' : 'event_note'}
                           </span>
-                        ) : (
-                          <span className="text-xs italic text-on-surface-variant">Sin asignar</span>
+                          {isAdvancedMode ? 'Modo Avanzado ON' : 'Agendamiento Avanzado'}
+                        </button>
+                      </div>
+
+                      {/* Cuadrícula de Slots (Solo en modo avanzado) */}
+                      {isAdvancedMode && (
+                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                          {isLoadingSlots ? (
+                            <div className="grid grid-cols-3 gap-2">
+                              {[1,2,3].map(i => (
+                                <div key={i} className="h-10 bg-surface-container animate-pulse rounded-lg" />
+                              ))}
+                            </div>
+                          ) : availableSlots.length === 0 ? (
+                            <div className="py-4 text-center bg-surface-container-low rounded-xl border border-dashed border-surface-container">
+                              <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase">Sin disponibilidad para esta fecha</p>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-3 gap-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                              {availableSlots.map((slot, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedTime(slot.time)
+                                    setSelectedDockId(slot.dock_id)
+                                  }}
+                                  className={cn(
+                                    "p-2 rounded-lg border transition-all text-center group relative",
+                                    selectedTime === slot.time && selectedDockId === slot.dock_id
+                                      ? "bg-primary text-white border-primary shadow-sm"
+                                      : slot.time === currentAppointment.scheduled_time?.substring(0, 5) && slot.dock_id === currentAppointment.dock_id && rescheduleDate === currentAppointment.scheduled_date
+                                        ? "bg-primary-fixed/10 border-primary/30"
+                                        : "bg-white border-surface-container hover:border-primary/40 hover:bg-primary/5"
+                                  )}
+                                >
+                                  {slot.time === currentAppointment.scheduled_time?.substring(0, 5) && slot.dock_id === currentAppointment.dock_id && rescheduleDate === currentAppointment.scheduled_date && (
+                                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-primary rounded-full" />
+                                  )}
+                                  <p className="text-sm font-black leading-none">{slot.time}</p>
+                                  <p className={cn(
+                                    "text-[8px] font-bold uppercase truncate mt-0.5",
+                                    selectedTime === slot.time && selectedDockId === slot.dock_id
+                                      ? "text-white/70"
+                                      : "text-on-surface-variant/50"
+                                  )}>
+                                    {slot.dock_name}
+                                  </p>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                        {showForceReason && (
+                          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl animate-in slide-in-from-top-2 duration-200">
+                            <p className="text-[10px] font-black text-amber-700 uppercase mb-2">Conflicto Detectado - ¿Forzar Asignación?</p>
+                            <textarea
+                              placeholder="Razón de la excepción operativa..."
+                              value={forceReason}
+                              onChange={(e) => setForceReason(e.target.value)}
+                              className="w-full text-xs p-2 rounded-lg border-amber-200 focus:ring-amber-500 min-h-[60px] mb-2"
+                            />
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                className="bg-amber-600 hover:bg-amber-700 text-[10px] flex-1"
+                                onClick={() => handleAssignDock(true)}
+                                disabled={!forceReason.trim() || isAssigningDock}
+                              >
+                                CONFIRMAR EXCEPCIÓN
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="secondary" 
+                                className="text-[10px]"
+                                onClick={() => {
+                                  setShowForceReason(false)
+                                  setSelectedDockId(currentAppointment.dock_id)
+                                }}
+                              >
+                                CANCELAR
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
                       <div className="text-right">
@@ -512,10 +760,8 @@ export function AppointmentDetailsModal({ isOpen, onClose, appointment, onSucces
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Operación & Trazabilidad Libre */}
+                {/* Operación & Trazabilidad Libre */}
             <div className="md:col-span-1 space-y-4">
               <div className="bg-surface-container-low p-5 rounded-2xl border border-surface-container h-full flex flex-col">
                 <h3 className="text-xs font-black tracking-widest text-primary/60 uppercase mb-4">Notas & Trazabilidad</h3>

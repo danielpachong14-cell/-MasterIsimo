@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Appointment } from "@/types"
 import { AppointmentDetailsModal } from "@/app/(dashboard)/operacion/trazabilidad/components/AppointmentDetailsModal"
 import { capitalize } from "@/lib/utils"
+import { useUIStore } from "@/store/uiStore"
 
 export function GlobalSearch() {
   const [query, setQuery] = useState("")
@@ -11,9 +12,8 @@ export function GlobalSearch() {
   const [isSearching, setIsSearching] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   
-  // Modal state
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  // Zustand Modal Control
+  const { openAppointmentDetails } = useUIStore()
 
   const dropdownRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
@@ -54,7 +54,7 @@ export function GlobalSearch() {
       // ILIKE OR on multiple fields to avoid expensive FTS storage cost
       const { data, error } = await supabase
         .from("appointments")
-        .select("*")
+        .select("id, company_name, po_number, driver_name, license_plate, appointment_number, status, created_at")
         .or(`company_name.ilike.${q},po_number.ilike.${q},driver_name.ilike.${q},license_plate.ilike.${q},appointment_number.ilike.${q}`)
         .order("created_at", { ascending: false })
         .limit(8)
@@ -69,8 +69,7 @@ export function GlobalSearch() {
   }, [debouncedQuery, supabase])
 
   const handleSelect = (appointment: Appointment) => {
-    setSelectedAppointment(appointment)
-    setIsModalOpen(true)
+    openAppointmentDetails(appointment)
     setIsOpen(false)
     setQuery("")
   }
@@ -132,15 +131,10 @@ export function GlobalSearch() {
         </div>
       )}
 
-      {/* Modal Reutilizado */}
-      {isModalOpen && selectedAppointment && (
-        <AppointmentDetailsModal 
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          appointment={selectedAppointment}
-          onSuccess={() => setIsModalOpen(false)} // Just close on success or let user view it
-        />
-      )}
+      {/* Modal Reutilizado - Ahora controlado por Zustand */}
+      <AppointmentDetailsModal 
+        onSuccess={() => {}} 
+      />
     </div>
   )
 }

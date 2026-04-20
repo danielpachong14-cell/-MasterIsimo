@@ -1,4 +1,4 @@
-# Guía de Arquitectura Técnica (v3.0) 🏗️
+# Guía de Arquitectura Técnica (v3.1) 🏗️
 
 Este documento detalla la implementación técnica avanzada del YMS, centrada en el rendimiento, la seguridad y la escalabilidad de Next.js 15.
 
@@ -13,20 +13,14 @@ El sistema prioriza la ejecución de lógica y el fetching de datos en el servid
 ### B. El Puente: Server Actions
 Para que los Client Components ejecuten lógica privilegiada (como el motor de agendamiento) sin exponer lógica de BD, se utilizan **Server Actions**.
 
-```mermaid
-sequenceDiagram
-    participant UI as Client Component (Form)
-    participant Action as Server Action (scheduleEngineAction)
-    participant Engine as Scheduling Engine (Server-Side)
-    participant DB as Supabase (Postgres)
+### C. Seguridad de Ruteo: Middleware & Public Access
+El sistema implementa una capa de seguridad en `middleware.ts` que intercepta todas las peticiones para validar la sesión de Supabase:
 
-    UI->>Action: Invocar con datos de entrada
-    Action->>Engine: Ejecutar lógica de 3 pasos
-    Engine->>DB: Consultar reglas y capacidad
-    DB-->>Engine: Datos operativos
-    Engine-->>Action: Resultado (Slots/Duración)
-    Action-->>UI: Respuesta serializada
-```
+1. **Rutas Privadas:** Requieren autenticación (`/operacion/*`, `/admin/*`, `/perfil`).
+2. **Rutas Públicas (Whitelisted):** Acceso sin token para proveedores y transportadores:
+    - `/proveedores/**` (Agendamiento externo).
+    - `/p/**` (Reporte de llegada/Check-in).
+3. **Escudo RLS:** En las rutas públicas, la seguridad se transfiere desde la sesión del usuario hacia las políticas de **RLS (Row Level Security)** en Postgres, permitiendo inserciones anónimas solo bajo esquemas de validación estrictos.
 
 ---
 

@@ -1,11 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { parseTime, formatTimeFromMinutes, calculateDuration } from "./scheduling"
+export { parseTime, formatTimeFromMinutes, calculateDuration }
 import type {
   CapacityCheckResult,
   AvailableSlot,
   SchedulingRule,
   Dock,
 } from "@/types"
+
+// ─── Selects granulares (strings constantes para reutilización) ───────────────
+
+const CAPACITY_LIMIT_SELECT = "id, environment_id, normal_box_limit, extended_box_limit, extended_end_time, is_active"
+
+const SCHEDULING_RULE_SELECT = "id, environment_id, vehicle_type_id, min_boxes, max_boxes, duration_minutes, max_duration_minutes, efficiency_multiplier, is_dynamic, priority, is_active"
 
 // ─── Paso 1: Validación de Capacidad Diaria (Soft Limits) ───
 
@@ -27,7 +34,7 @@ export async function checkDailyCapacity(
   // Obtener límite configurado para el ambiente
   const { data: limitRow, error: limitError } = await supabase
     .from("daily_capacity_limits")
-    .select("*, environment:environments(*)")
+    .select(`${CAPACITY_LIMIT_SELECT}, environment:environments(id, name)`)
     .eq("environment_id", environmentId)
     .eq("is_active", true)
     .single()
@@ -102,10 +109,10 @@ export async function resolveSchedulingRule(
 ): Promise<SchedulingRule | null> {
   let query = supabase
     .from("scheduling_rules")
-    .select("*")
+    .select(SCHEDULING_RULE_SELECT)
     .eq("is_active", true)
     .lte("min_boxes", totalBoxes)
-    .order("priority", { ascending: false })
+    .order("priority", { ascending: true })
 
   if (environmentId) {
     query = query.eq("environment_id", environmentId)
@@ -117,9 +124,9 @@ export async function resolveSchedulingRule(
 
   // Filtrar por max_boxes y compatibilidad de vehículo (sin categoría).
   // La cascada resuelve ahora exclusivamente por: ambiente → vehículo → rango de cajas.
-  const matchingRules = rules.filter((rule) => {
-    if (rule.max_boxes !== null && totalBoxes > rule.max_boxes) return false
-    if (rule.vehicle_type_id !== null && rule.vehicle_type_id !== vehicleTypeId) return false
+  const matchingRules = (rules as unknown as SchedulingRule[]).filter((rule) => {
+    if (rule.max_boxes != null && totalBoxes > rule.max_boxes) return false
+    if (rule.vehicle_type_id != null && rule.vehicle_type_id !== vehicleTypeId) return false
     return true
   })
 
@@ -143,7 +150,7 @@ export async function findAvailableSlots(
   // 1. Obtener settings operativos
   const { data: settings, error: settingsError } = await supabase
     .from("cedi_settings")
-    .select("*")
+    .select("start_time, end_time")
     .single()
 
   if (settingsError || !settings) {
@@ -154,7 +161,7 @@ export async function findAvailableSlots(
   // 2. Obtener muelles activos
   const { data: allDocks, error: docksError } = await supabase
     .from("docks")
-    .select("*")
+    .select("id, name, environment_id, supported_vehicle_types, type, is_unloading_authorized, priority, is_active")
     .eq("is_active", true)
     .order("priority", { ascending: true })
     .order("id", { ascending: true })
@@ -201,7 +208,7 @@ export async function findAvailableSlots(
   if (environmentId) {
     const { data: capLimit, error: capError } = await supabase
       .from("daily_capacity_limits")
-      .select("*")
+      .select(CAPACITY_LIMIT_SELECT)
       .eq("environment_id", environmentId)
       .eq("is_active", true)
       .single()
@@ -249,6 +256,53 @@ export async function findAvailableSlots(
   }
 
   return slots
+}
+
+/**
+ * Verifica si un muelle específico está disponible en un bloque de tiempo dado.
+ * Utilizado por acciones de asignación manual para garantizar la integridad.
+ */
+export async function checkDockAvailability(
+  supabase: SupabaseClient,
+  dockId: number,
+  date: string,
+  startTimeMinutes: number,
+  durationMinutes: number,
+  excludeAppointmentId?: string
+): Promise<{ available: boolean; conflictWith?: string }> {
+  const proposedEnd = startTimeMinutes + durationMinutes
+
+  const { data: appointments, error } = await supabase
+    .from("appointments")
+    .select("id, scheduled_time, estimated_duration_minutes, scheduled_end_time, license_plate")
+    .eq("scheduled_date", date)
+    .eq("dock_id", dockId)
+    .neq("status", "CANCELADO")
+
+  if (error) {
+    console.error("Error checking dock availability:", error)
+    return { available: false }
+  }
+
+  let conflictLabel: string | undefined
+
+  const hasConflict = (appointments || []).some((app) => {
+    if (excludeAppointmentId && app.id === excludeAppointmentId) return false
+
+    const start = parseTime(app.scheduled_time)
+    const end = app.scheduled_end_time
+      ? parseTime(app.scheduled_end_time)
+      : start + (app.estimated_duration_minutes || 0)
+
+    const overlap = start < proposedEnd && end > startTimeMinutes
+    if (overlap) conflictLabel = app.license_plate
+    return overlap
+  })
+
+  return { 
+    available: !hasConflict, 
+    conflictWith: conflictLabel 
+  }
 }
 
 // ─── Orquestador Principal ──────────────────────────────────

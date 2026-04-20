@@ -82,7 +82,9 @@ export async function updateSession(request: NextRequest) {
     // 3. REGLAS DE ACCESO (PROTECCIÓN DE RUTAS)
     // ─────────────────────────────────────────────────────────────────────────
     const isAuthRoute = request.nextUrl.pathname.startsWith('/login')
-    const isPublicRoute = request.nextUrl.pathname.startsWith('/p/') // p/check-in, etc.
+    const isPublicRoute = 
+      request.nextUrl.pathname.startsWith('/p/') || 
+      request.nextUrl.pathname.startsWith('/proveedores')
     const isNextInternal = request.nextUrl.pathname.startsWith('/_next') || request.nextUrl.pathname.includes('.')
 
     // Ignorar archivos estáticos y rutas internas de Next

@@ -57,17 +57,20 @@ Busca un "hueco" físico en los muelles compatibles.
    - Para cada slot, verifica si **al menos un muelle individual** tiene libre el bloque completo de `duración calculada`.
 3. **Asignación Preventiva:** El motor retorna el muelle sugerido (`dock_id`) para garantizar que la cita tiene un espacio físico real.
 
-## 🛠️ Implementation Details (Server-Side Only)
+## 🛠️ Implementation Details (Public & Server Access)
 
 El motor utiliza **Inyección de Dependencia (DI)** para el cliente de Supabase.
 
 ```typescript
 // Firma de la función principal
 export async function runSchedulingEngine(
-  supabase: SupabaseClient, // Cliente de servidor (Service Role o Auth)
+  supabase: SupabaseClient, // Cliente de servidor (Service Role, Auth o Anon)
   request: SchedulingRequest
 ): Promise<SchedulingResult>
 ```
+
+### Seguridad en Rutas Públicas
+Para permitir el agendamiento externo sin autenticación (`/proveedores`), el motor ha sido auditado para garantizar que **no depende de sesiones de usuario**. El cliente de Supabase inyectado por la Server Action `scheduleEngineAction` puede ser anónimo, delegando la integridad de los datos exclusivamente a las políticas de **RLS (Row Level Security)** en la base de datos.
 
 > [!CAUTION]
 > El motor **NUNCA** debe ejecutarse en el navegador. Todas las invocaciones deben pasar por la Server Action `scheduleEngineAction` para garantizar que las llaves de API y la lógica de negocio permanezcan protegidas.

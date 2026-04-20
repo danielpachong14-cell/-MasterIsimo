@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { Appointment } from '@/types';
 
 /**
  * Definición del estado global para componentes de interfaz.
@@ -12,6 +13,14 @@ interface UIState {
   toggleAccordion: (id: string) => void;
   isSidebarCollapsed: boolean;
   toggleSidebar: () => void;
+  
+  // Appointment Detail Modal State (Zustand Centralized)
+  selectedAppointment: Appointment | null;
+  isAppointmentModalOpen: boolean;
+  isAdvancedSchedulingMode: boolean;
+  openAppointmentDetails: (appointment: Appointment) => void;
+  closeAppointmentDetails: () => void;
+  setAdvancedSchedulingMode: (isAdvanced: boolean) => void;
 }
 
 /**
@@ -51,9 +60,33 @@ export const useUIStore = create<UIState>()(
        * Alterna entre el estado expandido (300px) y colapsado (90px) del Sidebar.
        */
       toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
+
+      // Appointment Details actions
+      selectedAppointment: null,
+      isAppointmentModalOpen: false,
+      isAdvancedSchedulingMode: false,
+      
+      openAppointmentDetails: (appointment) => set({ 
+        selectedAppointment: appointment, 
+        isAppointmentModalOpen: true,
+        isAdvancedSchedulingMode: false // Reset mode on new open
+      }),
+      
+      closeAppointmentDetails: () => set({ 
+        selectedAppointment: null, 
+        isAppointmentModalOpen: false 
+      }),
+      
+      setAdvancedSchedulingMode: (isAdvanced) => set({ 
+        isAdvancedSchedulingMode: isAdvanced 
+      }),
     }),
     {
       name: 'sidebar-ui-storage', 
+      partialize: (state) => ({ 
+        openAccordionIds: state.openAccordionIds,
+        isSidebarCollapsed: state.isSidebarCollapsed,
+      }),
     }
   )
 );
