@@ -65,25 +65,40 @@ export interface TimelineDockRow {
 }
 
 /**
- * Utilidad interna para aplanar la respuesta relacional de Supabase (docks.name -> dock_name).
- * Centraliza la lógica para que las funciones de fetch sean limpias y coherentes.
+ * Forma cruda de la respuesta de Supabase cuando se solicita una cita con join a docks.
+ * La relación docks(name) puede llegar como objeto o array según la versión del cliente.
  */
-function flattenAppointment<T>(data: Record<string, unknown>): T {
-  const rawDock = data.docks as { name: string } | { name: string }[] | undefined | null
+interface RawAppointmentRow extends Record<string, unknown> {
+  docks?: { name: string } | { name: string }[] | null
+}
+
+/**
+ * Utilidad interna para aplanar la respuesta relacional de Supabase (docks.name -> dock_name).
+ * Centraliza la lógica de transformación para que fetchKanbanAppointments y
+ * fetchAppointmentById sean coherentes y estén libres de lógica duplicada.
+ */
+function flattenAppointment<T extends Record<string, unknown>>(data: RawAppointmentRow): Omit<T, 'docks'> & { dock_name: string | null } {
+  const rawDock = data.docks
   let dockName: string | null = null
 
   if (rawDock) {
-    dockName = Array.isArray(rawDock) 
-      ? (rawDock[0]?.name || null) 
-      : (rawDock.name || null)
+    dockName = Array.isArray(rawDock)
+      ? (rawDock[0]?.name ?? null)
+      : (rawDock.name ?? null)
   }
 
-  // Retornamos una copia del objeto sin la propiedad 'docks' y con 'dock_name' aplanado
-  const { docks, ...flattened } = data
+  // Eliminamos 'docks' del objeto de forma segura sin generar unused-vars
+  const result: Record<string, unknown> = {}
+  for (const key of Object.keys(data)) {
+    if (key !== 'docks') {
+      result[key] = data[key]
+    }
+  }
+
   return {
-    ...flattened,
+    ...result,
     dock_name: dockName
-  } as unknown as T
+  } as Omit<T, 'docks'> & { dock_name: string | null }
 }
 
 // ─── Selects granulares (strings constantes para reutilización) ───────────────
@@ -185,8 +200,9 @@ export async function fetchKanbanAppointments(
     return []
   }
 
-  // Aplanar el resultado relacional usando la utilidad centralizada
-  return (data ?? []).map(row => flattenAppointment<KanbanAppointmentRow>(row as Record<string, unknown>))
+  return (data ?? []).map(row =>
+    flattenAppointment<KanbanAppointmentRow>(row as RawAppointmentRow)
+  ) as KanbanAppointmentRow[]
 }
 
 /**
@@ -208,8 +224,7 @@ export async function fetchAppointmentById(
     return null
   }
 
-  // Aplanar resultado: Extraemos docks y devolvemos el resto con dock_name al primer nivel
-  return flattenAppointment<Appointment>(data as Record<string, unknown>)
+  return flattenAppointment<Appointment>(data as RawAppointmentRow) as unknown as Appointment
 }
 
 /**
