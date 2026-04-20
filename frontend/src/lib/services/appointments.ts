@@ -66,18 +66,17 @@ export interface TimelineDockRow {
 
 /**
  * Forma cruda de la respuesta de Supabase cuando se solicita una cita con join a docks.
- * La relación docks(name) puede llegar como objeto o array según la versión del cliente.
+ * Utiliza un genérico T para mantener el tipado fuerte de la proyección solicitada.
  */
-interface RawAppointmentRow extends Record<string, unknown> {
+type RawAppointmentRow<T> = Omit<T, 'dock_name'> & {
   docks?: { name: string } | { name: string }[] | null
 }
 
 /**
  * Utilidad interna para aplanar la respuesta relacional de Supabase (docks.name -> dock_name).
- * Centraliza la lógica de transformación para que fetchKanbanAppointments y
- * fetchAppointmentById sean coherentes y estén libres de lógica duplicada.
+ * Mantiene intacta la inferencia genérica del resto de campos de T.
  */
-function flattenAppointment<T extends Record<string, unknown>>(data: RawAppointmentRow): Omit<T, 'docks'> & { dock_name: string | null } {
+function flattenAppointment<T>(data: RawAppointmentRow<T>): T {
   const rawDock = data.docks
   let dockName: string | null = null
 
@@ -87,18 +86,13 @@ function flattenAppointment<T extends Record<string, unknown>>(data: RawAppointm
       : (rawDock.name ?? null)
   }
 
-  // Eliminamos 'docks' del objeto de forma segura sin generar unused-vars
-  const result: Record<string, unknown> = {}
-  for (const key of Object.keys(data)) {
-    if (key !== 'docks') {
-      result[key] = data[key]
-    }
-  }
+  // Extraer docks usando destructuración segura (sin warnings de unused-vars omitiendo intencionalmente)
+  const { docks: _docks, ...rest } = data as Record<string, unknown>
 
   return {
-    ...result,
+    ...rest,
     dock_name: dockName
-  } as Omit<T, 'docks'> & { dock_name: string | null }
+  } as unknown as T
 }
 
 // ─── Selects granulares (strings constantes para reutilización) ───────────────
@@ -148,6 +142,8 @@ const DETAILS_SELECT = `
   appointment_number,
   status,
   license_plate,
+  vehicle_type,
+  box_count,
   company_name,
   driver_name,
   driver_phone,
@@ -169,6 +165,8 @@ const DETAILS_SELECT = `
   boxes_received,
   damages,
   unloading_personnel,
+  created_at,
+  updated_at,
   docks(name),
   appointment_purchase_orders(id, po_number, box_count)
 `.trim()
@@ -193,16 +191,16 @@ export async function fetchKanbanAppointments(
     query = query.eq("scheduled_date", date)
   }
 
-  const { data, error } = await query.order("created_at", { ascending: true })
+  const { data, error } = await query
+    .order("created_at", { ascending: true })
+    .returns<RawAppointmentRow<KanbanAppointmentRow>[]>()
 
   if (error) {
     console.error("[AppointmentsService] Error fetching kanban appointments:", error)
     return []
   }
 
-  return (data ?? []).map(row =>
-    flattenAppointment<KanbanAppointmentRow>(row as RawAppointmentRow)
-  ) as KanbanAppointmentRow[]
+  return (data ?? []).map(flattenAppointment)
 }
 
 /**
@@ -218,13 +216,14 @@ export async function fetchAppointmentById(
     .select(DETAILS_SELECT)
     .eq("id", id)
     .single()
+    .returns<RawAppointmentRow<Appointment>>()
 
   if (error || !data) {
     console.error(`[AppointmentsService] Error fetching appointment ${id}:`, error)
     return null
   }
 
-  return flattenAppointment<Appointment>(data as RawAppointmentRow) as unknown as Appointment
+  return flattenAppointment(data)
 }
 
 /**
@@ -241,13 +240,14 @@ export async function fetchTimelineAppointments(
     .eq("scheduled_date", date)
     .neq("status", "CANCELADO")
     .order("scheduled_time")
+    .returns<TimelineAppointmentRow[]>()
 
   if (error) {
     console.error("[AppointmentsService] Error fetching timeline appointments:", error)
     return []
   }
 
-  return (data ?? []) as unknown as TimelineAppointmentRow[]
+  return data ?? []
 }
 
 /**
@@ -264,13 +264,14 @@ export async function fetchTimelineDocks(
     .or("type.eq.DESCARGUE,and(type.eq.MIXTO,is_unloading_authorized.eq.true)")
     .order("priority")
     .order("id")
+    .returns<TimelineDockRow[]>()
 
   if (error) {
     console.error("[AppointmentsService] Error fetching timeline docks:", error)
     return []
   }
 
-  return (data ?? []) as unknown as TimelineDockRow[]
+  return data ?? []
 }
 
 /**
