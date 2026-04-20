@@ -1,93 +1,59 @@
-# Guía de Arquitectura: MasterIsimo CEDI 🏗️
+# Guía de Arquitectura Técnica (v3.0) 🏗️
 
-Este documento detalla la estructura técnica, los flujos de datos y el modelo operativo del Motor de Agendamiento Inteligente de MasterIsimo.
+Este documento detalla la implementación técnica avanzada del YMS, centrada en el rendimiento, la seguridad y la escalabilidad de Next.js 15.
 
-## 1. Visión General del Sistema
+## 1. Patrón Arquitectónico: Server-First
 
-El sistema utiliza **Next.js 15** con el **App Router** y **Supabase** como backend. La lógica de negocio está centralizada en servicios desacoplados para garantizar consistencia entre el formulario público y el dashboard interno.
+El sistema prioriza la ejecución de lógica y el fetching de datos en el servidor para minimizar el JS enviado al cliente (Hydration) y proteger la lógica de negocio.
 
-### Diagrama de Arquitectura (Motor de Reglas)
+### A. Server Components vs Client Components
+- **Server Components:** Utilizados para el 90% del fetching de datos (e.g., `resumen/page.tsx`, `kanban/page.tsx`). Permiten acceso directo a Supabase sin exponer el cliente del navegador.
+- **Client Components:** Reservados exclusivamente para interactividad (Drag & Drop, Modales, Formularios dinámicos). Ejemplo: `KanbanBoard`, `SupplierForm`.
+
+### B. El Puente: Server Actions
+Para que los Client Components ejecuten lógica privilegiada (como el motor de agendamiento) sin exponer lógica de BD, se utilizan **Server Actions**.
 
 ```mermaid
-graph TD
-    User([Admin CEDI]) --> Config[Panel Configuración]
-    Supplier([Proveedor]) --> PubForm[Formulario Inteligente]
-    
-    subgraph Core [Motor de Agendamiento]
-        Engine[scheduling-engine.ts]
-        Rules[Reglas en Cascada]
-        Cap[Validador de Capacidad]
-        Slots[Buscador de Disponibilidad]
-    end
-    
-    subgraph Storage [Supabase]
-        DB[(Postgres)]
-        env_tab[Environments]
-        rule_tab[Scheduling Rules]
-        cap_tab[Daily Capacity]
-    end
-    
-    Config --> DB
-    PubForm --> Engine
-    Engine --> Cap
-    Cap --> DB
-    Engine --> Rules
-    Rules --> DB
-    Engine --> Slots
-    Slots --> DB
+sequenceDiagram
+    participant UI as Client Component (Form)
+    participant Action as Server Action (scheduleEngineAction)
+    participant Engine as Scheduling Engine (Server-Side)
+    participant DB as Supabase (Postgres)
+
+    UI->>Action: Invocar con datos de entrada
+    Action->>Engine: Ejecutar lógica de 3 pasos
+    Engine->>DB: Consultar reglas y capacidad
+    DB-->>Engine: Datos operativos
+    Engine-->>Action: Resultado (Slots/Duración)
+    Action-->>UI: Respuesta serializada
 ```
 
 ---
 
-## 2. El Motor de Agendamiento (Core Logic)
+## 2. Capa de Servicios (`lib/services`)
 
-El motor (`scheduling-engine.ts`) automatiza la asignación de citas mediante un proceso de 3 pasos:
+La lógica de acceso a datos se ha desacoplado de la UI para garantizar consistencia y facilitar el mantenimiento.
 
-### Paso 1: Validación de Capacidad (Soft Limits)
-El sistema verifica el volumen total de cajas proyectado para la fecha y ambiente seleccionados.
-- **Normal Limit:** Si se supera, se marca para Horario Extendido.
-- **Extended Limit:** Si se supera, se genera una alerta de Sobrecupo Crítico.
-*Nota: El motor nunca bloquea la cita, permitiendo flexibilidad operativa bajo alerta.*
-
-### Paso 2: Resolución de Reglas Logísticas
-Se busca la regla de duración más específica en la base de datos siguiendo este orden de prioridad:
-1. **Ambiente** (Secos, Fríos, etc.)
-2. **Categoría de Producto** (Fruver, Bebidas, etc.)
-3. **Tipo de Vehículo** (Tractocamión, Turbo, etc.)
-4. **Rango de Cajas** (Min/Max)
-
-### Paso 3: Búsqueda de Slots en Muelles Compatibles
-Identifica muelles que:
-- Estén marcados con el ambiente solicitado.
-- Soporten el tipo de vehículo.
-- Tengan un bloque de tiempo continuo disponible equivalente a la duración calculada.
+1. **`scheduling-engine.ts`:** Orquestador de la lógica logística. Utiliza Inyección de Dependencia para el cliente de Supabase.
+2. **`appointments.ts`:** Manejo granular de consultas a la tabla principal. Implementa el patrón **Projections** para evitar el sobre-envío de datos (over-fetching).
 
 ---
 
-## 3. Modelo de Datos (ERD Actualizado)
+## 3. Integración con Supabase
 
-```mermaid
-erDiagram
-    ENVIRONMENTS ||--o{ DOCKS : "especializa"
-    ENVIRONMENTS ||--o{ SCHEDULING_RULES : "aplica a"
-    ENVIRONMENTS ||--|| DAILY_CAPACITY : "define"
-    
-    SCHEDULING_RULES }o--|| VEHICLE_TYPES : "filtra por"
-    SCHEDULING_RULES }o--|| PRODUCT_CATEGORIES : "filtra por"
-    
-    APPOINTMENTS }o--|| ENVIRONMENTS : "ocurre en"
-    APPOINTMENTS }o--|| DOCKS : "asignado a"
-    APPOINTMENTS }o--|| SCHEDULING_RULES : "basado en"
-```
+MasterIsimo utiliza tres canales de comunicación con Supabase:
+- **Server Client (SSR/Actions):** Para operaciones de lectura pesada y mutaciones transaccionales.
+- **Browser Client:** Para autenticación básica del lado del cliente.
+- **Realtime (WebSockets):** Escucha activa en el Tablero Kanban para reflejar cambios de otros supervisores instantáneamente.
 
 ---
 
-## 4. Filosofía Operativa: "Soft Limits & Visibility"
+## 4. Estado Global (Zustand)
 
-A diferencia de sistemas rígidos, MasterIsimo prioriza la **visibilidad sobre el bloqueo**:
-1. **Agendamiento:** Siempre es posible agendar, pero el sistema informa al usuario y al CEDI sobre el estado de la capacidad.
-2. **Dashboard Real-time:** Los supervisores ven barras de progreso que cambian de color (🟢 a 🔴) permitiendo tomar decisiones proactivas antes de que lleguen los vehículos.
-3. **Asignación Forzada:** El personal interno tiene la facultad de sobrescribir cualquier regla del motor mediante "Asignación Forzada", registrando siempre el motivo para trazabilidad.
+Se utiliza una tienda (`uiStore.ts`) para gestionar únicamente estado de interfaz volátil:
+- Visibilidad de modales laterales.
+- Alertas y notificaciones del sistema.
+- Filtros de búsqueda temporales.
 
----
-*Ultima actualización: Abril 2026 - Integración de Motor Inteligente*
+> [!IMPORTANT]
+> El estado de negocio (Citas, Muelles, Reglas) **NUNCA** se guarda en Zustand. Se maneja mediante Server-State (Server Components) o sincronización directa con Supabase para garantizar una Única Fuente de Verdad.

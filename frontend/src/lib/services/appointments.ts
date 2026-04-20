@@ -84,6 +84,8 @@ function flattenAppointment<T>(data: RawAppointmentRow<T>): T {
     dockName = Array.isArray(rawDock)
       ? (rawDock[0]?.name ?? null)
       : (rawDock.name ?? null)
+  }
+
   // Extraer docks de forma segura para omitirlo en el objeto resultante
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { docks, ...rest } = data as Record<string, unknown>
@@ -280,7 +282,12 @@ export async function fetchTimelineDocks(
  * @returns El objeto de updates aplicado, para optimistic update en el cliente.
  */
 export function buildStatusTransitionUpdates(
-  currentRecord: Partial<Appointment>,
+  currentRecord: {
+    arrival_time?: string | null
+    docking_time?: string | null
+    start_unloading_time?: string | null
+    end_unloading_time?: string | null
+  },
   newStatus: AppointmentStatus
 ): Record<string, unknown> {
   const now = new Date().toISOString()
