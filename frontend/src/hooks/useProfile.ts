@@ -65,7 +65,7 @@ export function useProfile() {
           schema: 'public', 
           table: 'user_profiles',
           filter: `id=eq.${session.user.id}`
-        }, (payload: { new: Record<string, any> }) => {
+        }, (payload: { new: Partial<UserProfile> }) => {
           setProfile(prev => prev ? { ...prev, ...payload.new } : null)
         })
         .subscribe((status: string, err?: Error) => {
