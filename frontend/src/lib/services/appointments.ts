@@ -54,6 +54,7 @@ export interface TimelineAppointmentRow {
   appointment_purchase_orders: {
     id: string | number
     po_number: string
+    box_count: number
   }[]
 }
 
@@ -153,7 +154,7 @@ const TIMELINE_SELECT = `
   start_unloading_time,
   end_unloading_time,
   is_walk_in,
-  appointment_purchase_orders(id, po_number)
+  appointment_purchase_orders(id, po_number, box_count)
 `.trim()
 
 /** Campos mínimos para muelles en la vista de timeline */

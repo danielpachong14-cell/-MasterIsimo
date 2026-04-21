@@ -42,11 +42,7 @@ export function EditDockModal({
 
   if (!isOpen || !appointment) return null
 
-  const totalBoxes =
-    appointment.appointment_purchase_orders?.reduce(
-      (s, po) => s + (po.box_count || 0),
-      0
-    ) || appointment.box_count || 0
+  const totalBoxes = appointment.box_count || 0
 
   return (
     <div
