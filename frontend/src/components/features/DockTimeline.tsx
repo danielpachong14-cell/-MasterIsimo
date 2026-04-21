@@ -2,17 +2,18 @@
 
 import { useState, useMemo, useRef, useEffect } from "react"
 import { Appointment, Dock, CediSettings } from "@/types"
+import { TimelineAppointmentRow } from "@/lib/services/appointments"
 import { parseTime } from "@/lib/services/scheduling"
 import { cn } from "@/lib/utils"
 
 interface DockTimelineProps {
   date: string
-  appointments: Appointment[]
+  appointments: TimelineAppointmentRow[]
   docks: Dock[]
   settings: CediSettings
   onAppointmentMove: (appointmentId: string, newDockId: number, newStartTime: string) => void
   onAppointmentExtend: (appointmentId: string, newEndTime?: string) => void
-  onAppointmentEdit: (appointment: Appointment) => void
+  onAppointmentEdit: (appointment: any) => void // using any as cast back to general Appointment type in parent
 }
 
 const ROW_HEIGHT = 72 // px per dock row
@@ -64,11 +65,21 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
   }, [startMin, totalSlots, zoomLevel])
 
   // Calculate block positioning
-  const getBlockStyle = (appointment: Appointment) => {
-    const aStart = parseTime(appointment.scheduled_time)
-    const aEnd = appointment.scheduled_end_time 
+  // Calculate block positioning based on REAL time vs SCHEDULED time
+  const getBlockStyle = (appointment: TimelineAppointmentRow) => {
+    // Si la operación física inició, prioriza el tiempo real de inicio para mostrar la verdad en patio
+    const aStart = appointment.start_unloading_time 
+      ? parseTime(appointment.start_unloading_time) 
+      : parseTime(appointment.scheduled_time)
+      
+    // Prioridad: 1. Fin físico real, 2. Fin planeado explícito (extensión), 3. Estimado
+    let aEnd = appointment.scheduled_end_time 
       ? parseTime(appointment.scheduled_end_time) 
-      : aStart + (appointment.estimated_duration_minutes || 60)
+      : parseTime(appointment.scheduled_time) + (appointment.estimated_duration_minutes || 60)
+
+    if (appointment.end_unloading_time) {
+      aEnd = parseTime(appointment.end_unloading_time)
+    }
 
     const leftOffset = ((aStart - startMin) / zoomLevel) * cellWidth
     const width = ((aEnd - aStart) / zoomLevel) * cellWidth
@@ -88,7 +99,7 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
   }
 
   // ─── Drag Handlers ────────────────────────────────────────
-  const handleMouseDown = (e: React.MouseEvent, appointment: Appointment) => {
+  const handleMouseDown = (e: React.MouseEvent, appointment: TimelineAppointmentRow) => {
     if (!appointment.dock_id) return
     e.preventDefault()
     setDragState({
@@ -148,7 +159,7 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
   }, [dragState, docks, onAppointmentMove, cellWidth, zoomLevel])
 
   // ─── Resize Handlers ──────────────────────────────────────
-  const handleResizeDown = (e: React.MouseEvent, appointment: Appointment) => {
+  const handleResizeDown = (e: React.MouseEvent, appointment: TimelineAppointmentRow) => {
     e.preventDefault()
     e.stopPropagation()
     const { width } = getBlockStyle(appointment)
@@ -367,6 +378,12 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
                               <span className="material-symbols-outlined text-[11px]">schedule</span>
                               {appointment.estimated_duration_minutes}m
                             </p>
+                            {appointment.start_unloading_time && (
+                              <p className="text-[9px] font-black flex items-center gap-0.5 text-tertiary">
+                                <span className="material-symbols-outlined text-[11px]">play_circle</span>
+                                {appointment.start_unloading_time.substring(0, 5)}
+                              </p>
+                            )}
                           </div>
                         </div>
 

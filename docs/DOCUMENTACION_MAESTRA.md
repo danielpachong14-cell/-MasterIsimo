@@ -13,8 +13,8 @@ Este documento consolida el conocimiento técnico y operativo del Sistema de Ges
   - Mapeo de DB, Enum de Estados y Proyecciones Granulares de TS.
 
 ### 2. Manuales y Onboarding
-- [Guía de Onboarding Técnico](./onboarding.md)
-  - Configuración de entorno, variables `.env` y despliegue en Vercel.
+- [Guía de Desarrollo y Mejores Prácticas](./DEVELOPMENT_GUIDE.md)
+  - Vercel Build Checklist, estándares de Realtime y manejo de estado.
 - [Manual Funcional por Módulos](./functional_manual.md)
   - Reglas de negocio para Operación, Admin y Portal Público.
 - [Manual para Administradores (Legacy)](./manuales/manual_superadmin.md)

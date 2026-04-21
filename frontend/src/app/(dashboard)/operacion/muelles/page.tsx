@@ -13,8 +13,14 @@ import {
   TimelineAppointmentRow,
   TimelineDockRow,
 } from "@/lib/services/appointments"
+import { 
+  assignDockAction, 
+  updateAppointmentStatusAction,
+  shiftAndExtendAppointmentAction
+} from "@/app/actions/appointments"
 import { ConfirmModal } from "./components/ConfirmModal"
 import { EditDockModal } from "./components/EditDockModal"
+import { useUIStore } from "@/store/uiStore"
 
 // El Timeline DE Muelles DEBE ser Client Component: requiere Realtime y DnD de bloques.
 // Las optimizaciones se centran en queries granulares via el servicio de appointments.
@@ -26,17 +32,17 @@ export default function MuellesPage() {
   const [settings, setSettings] = useState<CediSettings | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
-
-  // Modal state
-  const [confirmModal, setConfirmModal] = useState<{
-    appointmentId: string
-    newDockId: number
-    newTime: string
-  } | null>(null)
-  const [editModal, setEditModal] = useState<Appointment | null>(null)
-  const [extendModal, setExtendModal] = useState<string | null>(null)
-
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null)
+
+  const {
+    timelineConfirmModal: confirmModal,
+    timelineEditModal: editModal,
+    timelineExtendModal: extendModal,
+    setTimelineConfirmModal: setConfirmModal,
+    setTimelineEditModal: setEditModal,
+    setTimelineExtendModal: setExtendModal,
+    clearTimelineModals
+  } = useUIStore()
 
   const supabase = createClient()
 
@@ -110,26 +116,24 @@ export default function MuellesPage() {
     if (hasCollision) {
       showToast("Conflicto: El espacio en el muelle no está disponible.", "error")
       setActionLoading(false)
-      setConfirmModal(null)
+      clearTimelineModals()
       return
     }
 
     const newEndTime = formatTimeFromMinutes(proposedEndMin)
 
-    const { error } = await supabase
-      .from("appointments")
-      .update({
-        dock_id: confirmModal.newDockId,
-        scheduled_time: confirmModal.newTime,
-        scheduled_end_time: newEndTime + ":00",
-      })
-      .eq("id", confirmModal.appointmentId)
+    const { error, success } = await shiftAndExtendAppointmentAction({
+      appointmentId: confirmModal.appointmentId,
+      newDockId: confirmModal.newDockId,
+      newStartTime: confirmModal.newTime,
+      newEndTime: newEndTime + ":00"
+    })
 
     setActionLoading(false)
-    setConfirmModal(null)
+    clearTimelineModals()
 
-    if (error) {
-      showToast("Error al reubicar la cita.", "error")
+    if (!success) {
+      showToast(error || "Error al reubicar la cita.", "error")
     } else {
       showToast("Cita reubicada exitosamente.", "success")
       fetchData()
@@ -138,7 +142,7 @@ export default function MuellesPage() {
 
   const handleAppointmentEdit = useCallback((appointment: Appointment) => {
     setEditModal(appointment)
-  }, [])
+  }, [setEditModal])
 
   const handleSaveEdit = async (
     id: string,
@@ -184,7 +188,7 @@ export default function MuellesPage() {
       .eq("id", id)
 
     setActionLoading(false)
-    setEditModal(null)
+    clearTimelineModals()
 
     if (error) {
       showToast("Error al actualizar la cita.", "error")
@@ -198,22 +202,22 @@ export default function MuellesPage() {
     async (id: string, endTime: string) => {
       setActionLoading(true)
 
-      const { error } = await supabase.rpc("shift_appointments_on_resize", {
-        p_appointment_id: id,
-        p_new_end_time: endTime,
+      const { error, success } = await shiftAndExtendAppointmentAction({
+        appointmentId: id,
+        newEndTime: endTime
       })
 
       setActionLoading(false)
-      setExtendModal(null)
+      clearTimelineModals()
 
-      if (error) {
-        showToast("Error al extender cita. Posible conflicto de muelles.", "error")
+      if (!success) {
+        showToast(error || "Error al extender cita. Posible conflicto de muelles.", "error")
       } else {
         showToast("Agenda ajustada correctamente.", "success")
         fetchData()
       }
     },
-    [supabase, fetchData]
+    [supabase, fetchData, clearTimelineModals]
   )
 
   const handleAppointmentExtend = useCallback(
@@ -398,7 +402,7 @@ export default function MuellesPage() {
       {/* ═══ Confirm Move Modal ═══ */}
       <ConfirmModal
         isOpen={!!confirmModal}
-        onClose={() => setConfirmModal(null)}
+        onClose={clearTimelineModals}
         onConfirm={handleConfirmMove}
         loading={actionLoading}
         title="Confirmar Reubicación"
@@ -408,7 +412,7 @@ export default function MuellesPage() {
       {/* ═══ Edit Dock Modal ═══ */}
       <EditDockModal
         isOpen={!!editModal}
-        onClose={() => setEditModal(null)}
+        onClose={clearTimelineModals}
         appointment={editModal}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         docks={docks as any}
@@ -419,7 +423,7 @@ export default function MuellesPage() {
       {/* ═══ Extend Time Modal ═══ */}
       <ConfirmModal
         isOpen={!!extendModal}
-        onClose={() => setExtendModal(null)}
+        onClose={clearTimelineModals}
         onConfirm={handleConfirmExtend}
         loading={actionLoading}
         title="Extender Tiempo de Descarga"

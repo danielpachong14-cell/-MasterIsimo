@@ -21,6 +21,16 @@ interface UIState {
   openAppointmentDetails: (appointment: Appointment) => void;
   closeAppointmentDetails: () => void;
   setAdvancedSchedulingMode: (isAdvanced: boolean) => void;
+  
+  // Timeline/Muelles Volatile States
+  timelineConfirmModal: { appointmentId: string; newDockId: number; newTime: string } | null;
+  timelineEditModal: Appointment | null;
+  timelineExtendModal: string | null;
+
+  setTimelineConfirmModal: (modal: { appointmentId: string; newDockId: number; newTime: string } | null) => void;
+  setTimelineEditModal: (appointment: Appointment | null) => void;
+  setTimelineExtendModal: (appointmentId: string | null) => void;
+  clearTimelineModals: () => void;
 }
 
 /**
@@ -80,6 +90,20 @@ export const useUIStore = create<UIState>()(
       setAdvancedSchedulingMode: (isAdvanced) => set({ 
         isAdvancedSchedulingMode: isAdvanced 
       }),
+
+      // Timeline/Muelles Volatile States
+      timelineConfirmModal: null,
+      timelineEditModal: null,
+      timelineExtendModal: null,
+
+      setTimelineConfirmModal: (modal) => set({ timelineConfirmModal: modal }),
+      setTimelineEditModal: (appointment) => set({ timelineEditModal: appointment }),
+      setTimelineExtendModal: (appointmentId) => set({ timelineExtendModal: appointmentId }),
+      clearTimelineModals: () => set({
+        timelineConfirmModal: null,
+        timelineEditModal: null,
+        timelineExtendModal: null
+      })
     }),
     {
       name: 'sidebar-ui-storage', 

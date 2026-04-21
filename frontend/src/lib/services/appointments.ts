@@ -46,6 +46,10 @@ export interface TimelineAppointmentRow {
   company_name: string
   driver_name: string
   box_count: number | null
+  arrival_time: string | null
+  docking_time: string | null
+  start_unloading_time: string | null
+  end_unloading_time: string | null
   appointment_purchase_orders: {
     box_count: number
   }[]
@@ -142,6 +146,10 @@ const TIMELINE_SELECT = `
   company_name,
   driver_name,
   box_count,
+  arrival_time,
+  docking_time,
+  start_unloading_time,
+  end_unloading_time,
   appointment_purchase_orders(box_count)
 `.trim()
 

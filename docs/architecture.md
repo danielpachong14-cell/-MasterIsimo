@@ -28,26 +28,25 @@ El sistema implementa una capa de seguridad en `middleware.ts` que intercepta to
 
 La lógica de acceso a datos se ha desacoplado de la UI para garantizar consistencia y facilitar el mantenimiento.
 
-1. **`scheduling-engine.ts`:** Orquestador de la lógica logística. Utiliza Inyección de Dependencia para el cliente de Supabase.
-2. **`appointments.ts`:** Manejo granular de consultas a la tabla principal. Implementa el patrón **Projections** para evitar el sobre-envío de datos (over-fetching).
+1. **`scheduling-engine.ts`**: Orquestación logística y resolución de slots.
+2. **`appointments.ts`**: Implementa el patrón **Projections**. Define tipos como `KanbanAppointmentRow` que contienen solo los campos necesarios, reduciendo el payload de red hasta en un 80%.
 
 ---
 
 ## 3. Integración con Supabase
 
-MasterIsimo utiliza tres canales de comunicación con Supabase:
-- **Server Client (SSR/Actions):** Para operaciones de lectura pesada y mutaciones transaccionales.
-- **Browser Client:** Para autenticación básica del lado del cliente.
-- **Realtime (WebSockets):** Escucha activa en el Tablero Kanban para reflejar cambios de otros supervisores instantáneamente.
+MasterIsimo utiliza tres canales de comunicación:
+- **Server Client (SSR/Actions)**: Para lectura pesada y mutaciones protegidas.
+- **Browser Client**: Para autenticación y lógica volátil de cliente.
+- **Realtime (WebSockets)**: Sincronización instantánea de estados entre todos los usuarios del dashboard.
 
 ---
 
 ## 4. Estado Global (Zustand)
 
-Se utiliza una tienda (`uiStore.ts`) para gestionar únicamente estado de interfaz volátil:
-- Visibilidad de modales laterales.
-- Alertas y notificaciones del sistema.
-- Filtros de búsqueda temporales.
+Se utiliza `useUIStore` para desacoplar la interactividad compleja:
+- **Gestión de Modales**: El store almacena la entidad seleccionada (e.g., `selectedAppointment`) y controla la apertura/cierre de los paneles de detalle para evitar el *prop-drilling*.
+- **Configuración de UI**: Estados del Sidebar y alertas globales.
 
 > [!IMPORTANT]
-> El estado de negocio (Citas, Muelles, Reglas) **NUNCA** se guarda en Zustand. Se maneja mediante Server-State (Server Components) o sincronización directa con Supabase para garantizar una Única Fuente de Verdad.
+> Aunque el store gestione la "entidad activa" para la UI, el **Estado de Negocio** se sincroniza directamente con Supabase mediante Server Actions o suscripciones en tiempo real. El store nunca sustituye a la base de datos como fuente primaria de datos persistentes.

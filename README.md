@@ -78,6 +78,7 @@ El proyecto está diseñado estructuralmente como un monorepo ligero. Para despl
 
 ## 📖 Documentación Relacionada
 
+- [**Guía de Desarrollo y Estándares**](./docs/DEVELOPMENT_GUIDE.md) ⬅️ **Empieza aquí para contribuir.**
 - [Documento Técnico (ERS)](./Documento%20Técnico%20de%20Especificación%20de%20Requerimientos%20y%20Arquitectura%20(ERS).md)
 - [Guía de Arquitectura Avanzada](./docs/architecture.md)
 - [Manual para Administradores](./docs/manuales/manual_superadmin.md)
