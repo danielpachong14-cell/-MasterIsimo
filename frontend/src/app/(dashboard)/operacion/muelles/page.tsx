@@ -14,8 +14,6 @@ import {
   TimelineDockRow,
 } from "@/lib/services/appointments"
 import { 
-  assignDockAction, 
-  updateAppointmentStatusAction,
   shiftAndExtendAppointmentAction
 } from "@/app/actions/appointments"
 import { ConfirmModal } from "./components/ConfirmModal"
@@ -90,7 +88,7 @@ export default function MuellesPage() {
     (appointmentId: string, newDockId: number, newTime: string) => {
       setConfirmModal({ appointmentId, newDockId, newTime })
     },
-    []
+    [setConfirmModal]
   )
 
   const handleConfirmMove = async () => {
@@ -217,7 +215,7 @@ export default function MuellesPage() {
         fetchData()
       }
     },
-    [supabase, fetchData, clearTimelineModals]
+    [fetchData, clearTimelineModals]
   )
 
   const handleAppointmentExtend = useCallback(
@@ -228,7 +226,7 @@ export default function MuellesPage() {
         setExtendModal(appointmentId)
       }
     },
-    [handleConfirmExtendAction]
+    [handleConfirmExtendAction, setExtendModal]
   )
 
   const handleConfirmExtend = async () => {

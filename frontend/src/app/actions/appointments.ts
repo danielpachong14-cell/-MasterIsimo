@@ -196,7 +196,7 @@ export async function shiftAndExtendAppointmentAction({
   delete traceabilityUpdates.status
 
   // Preparar transacciones de actualización
-  const updatesToApply: any[] = []
+  const updatesToApply: Record<string, unknown>[] = []
 
   updatesToApply.push({
     id: targetAppt.id,

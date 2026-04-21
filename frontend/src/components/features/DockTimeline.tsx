@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useRef, useEffect } from "react"
-import { Appointment, Dock, CediSettings } from "@/types"
+import { Dock, CediSettings } from "@/types"
 import { TimelineAppointmentRow } from "@/lib/services/appointments"
 import { parseTime } from "@/lib/services/scheduling"
 import { cn } from "@/lib/utils"
@@ -13,7 +13,7 @@ interface DockTimelineProps {
   settings: CediSettings
   onAppointmentMove: (appointmentId: string, newDockId: number, newStartTime: string) => void
   onAppointmentExtend: (appointmentId: string, newEndTime?: string) => void
-  onAppointmentEdit: (appointment: any) => void // using any as cast back to general Appointment type in parent
+  onAppointmentEdit: (appointment: TimelineAppointmentRow) => void
 }
 
 const ROW_HEIGHT = 72 // px per dock row
