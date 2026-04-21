@@ -138,7 +138,7 @@ export default function MuellesPage() {
     }
   }
 
-  const handleAppointmentEdit = useCallback((appointment: Appointment) => {
+  const handleAppointmentEdit = useCallback((appointment: TimelineAppointmentRow) => {
     setEditModal(appointment)
   }, [setEditModal])
 

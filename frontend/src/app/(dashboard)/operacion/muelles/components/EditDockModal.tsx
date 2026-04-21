@@ -4,11 +4,12 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import type { Appointment, Dock } from "@/types"
+import type { TimelineAppointmentRow } from "@/lib/services/appointments"
 
 interface EditDockModalProps {
   isOpen: boolean
   onClose: () => void
-  appointment: Appointment | null
+  appointment: Appointment | TimelineAppointmentRow | null
   docks: Dock[]
   onSave: (id: string, dockId: number, time: string, endTime: string) => void
   loading: boolean

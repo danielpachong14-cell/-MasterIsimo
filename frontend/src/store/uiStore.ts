@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Appointment } from '@/types';
+import { TimelineAppointmentRow } from '@/lib/services/appointments';
 
 /**
  * Definición del estado global para componentes de interfaz.
@@ -24,11 +25,11 @@ interface UIState {
   
   // Timeline/Muelles Volatile States
   timelineConfirmModal: { appointmentId: string; newDockId: number; newTime: string } | null;
-  timelineEditModal: Appointment | null;
+  timelineEditModal: Appointment | TimelineAppointmentRow | null;
   timelineExtendModal: string | null;
 
   setTimelineConfirmModal: (modal: { appointmentId: string; newDockId: number; newTime: string } | null) => void;
-  setTimelineEditModal: (appointment: Appointment | null) => void;
+  setTimelineEditModal: (appointment: Appointment | TimelineAppointmentRow | null) => void;
   setTimelineExtendModal: (appointmentId: string | null) => void;
   clearTimelineModals: () => void;
 }
