@@ -50,6 +50,7 @@ export interface TimelineAppointmentRow {
   docking_time: string | null
   start_unloading_time: string | null
   end_unloading_time: string | null
+  is_walk_in: boolean | null
   appointment_purchase_orders: {
     box_count: number
   }[]
@@ -150,6 +151,7 @@ const TIMELINE_SELECT = `
   docking_time,
   start_unloading_time,
   end_unloading_time,
+  is_walk_in,
   appointment_purchase_orders(box_count)
 `.trim()
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Appointment, CediSettings } from "@/types"
+import { CediSettings } from "@/types"
 import { Card } from "@/components/ui/Card"
 import { Input } from "@/components/ui/Input"
 import { DockTimeline } from "@/components/features/DockTimeline"
