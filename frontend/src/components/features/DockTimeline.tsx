@@ -1,15 +1,15 @@
 "use client"
 
 import { useState, useMemo, useRef, useEffect } from "react"
-import { Dock, CediSettings } from "@/types"
-import { TimelineAppointmentRow } from "@/lib/services/appointments"
+import { CediSettings } from "@/types"
+import { TimelineAppointmentRow, TimelineDockRow } from "@/lib/services/appointments"
 import { parseTime } from "@/lib/services/scheduling"
 import { cn } from "@/lib/utils"
 
 interface DockTimelineProps {
   date: string
   appointments: TimelineAppointmentRow[]
-  docks: Dock[]
+  docks: TimelineDockRow[]
   settings: CediSettings
   onAppointmentMove: (appointmentId: string, newDockId: number, newStartTime: string) => void
   onAppointmentExtend: (appointmentId: string, newEndTime?: string) => void

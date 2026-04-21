@@ -363,11 +363,8 @@ export default function MuellesPage() {
       ) : (
         <DockTimeline
           date={date}
-          // DockTimeline acepta Appointment[] y Dock[] — las proyecciones son estructuralmente compatibles
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          appointments={appointments as any}
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          docks={docks as any}
+          appointments={appointments}
+          docks={docks}
           settings={settings}
           onAppointmentMove={handleAppointmentMove}
           onAppointmentExtend={handleAppointmentExtend}
