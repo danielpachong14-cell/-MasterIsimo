@@ -45,8 +45,14 @@ export function calculateDuration(
  */
 export function parseTime(timeString: string): number {
   if (!timeString) return 0
+  
+  if (timeString.includes('T')) {
+    const date = new Date(timeString)
+    return date.getHours() * 60 + date.getMinutes()
+  }
+
   const parts = timeString.split(':')
-  return parseInt(parts[0]) * 60 + parseInt(parts[1])
+  return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10)
 }
 
 /**
