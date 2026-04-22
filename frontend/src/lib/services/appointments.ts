@@ -133,6 +133,7 @@ const KANBAN_SELECT = `
   force_reason,
   is_walk_in,
   is_express,
+  notes,
   docks(name),
   appointment_purchase_orders(id, po_number, box_count)
 `.trim()
@@ -154,6 +155,7 @@ const TIMELINE_SELECT = `
   start_unloading_time,
   end_unloading_time,
   is_walk_in,
+  notes,
   appointment_purchase_orders(id, po_number, box_count)
 `.trim()
 

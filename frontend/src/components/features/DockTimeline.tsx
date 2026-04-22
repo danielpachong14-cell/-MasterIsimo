@@ -14,6 +14,8 @@ interface DockTimelineProps {
   onAppointmentMove: (appointmentId: string, newDockId: number, newStartTime: string) => void
   onAppointmentExtend: (appointmentId: string, newEndTime?: string) => void
   onAppointmentEdit: (appointment: TimelineAppointmentRow) => void
+  onAutoExtend?: (appointmentId: string) => void
+  onDropFromWaitlist?: (appointmentId: string, dockId: number, startTimeStr: string) => void
 }
 
 const ROW_HEIGHT = 72 // px per dock row
@@ -22,7 +24,7 @@ const DOCK_LABEL_WIDTH = 120
 
 type ZoomLevel = 5 | 15 | 30 | 60;
 
-export function DockTimeline({ date, appointments, docks, settings, onAppointmentMove, onAppointmentExtend, onAppointmentEdit }: DockTimelineProps) {
+export function DockTimeline({ date, appointments, docks, settings, onAppointmentMove, onAppointmentExtend, onAppointmentEdit, onAutoExtend, onDropFromWaitlist }: DockTimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   
   // 🔍 Zoom Logic
@@ -64,27 +66,43 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
     return headers
   }, [startMin, totalSlots, zoomLevel])
 
-  // Calculate block positioning
-  // Calculate block positioning based on REAL time vs SCHEDULED time
-  const getBlockStyle = (appointment: TimelineAppointmentRow) => {
-    // Si la operación física inició, prioriza el tiempo real de inicio para mostrar la verdad en patio
+  // Calculate Ghost block positioning based on planeed schedule
+  const getGhostBlockStyle = (appointment: TimelineAppointmentRow) => {
+    const aStart = parseTime(appointment.scheduled_time)
+    const aEnd = appointment.scheduled_end_time 
+      ? parseTime(appointment.scheduled_end_time) 
+      : parseTime(appointment.scheduled_time) + (appointment.estimated_duration_minutes || 60)
+
+    const leftOffset = ((aStart - startMin) / zoomLevel) * cellWidth
+    const width = ((aEnd - aStart) / zoomLevel) * cellWidth
+    return { left: leftOffset, width: Math.max(width, cellWidth / 2) }
+  }
+
+  // Calculate Real block positioning based on execution
+  const getRealBlockStyle = (appointment: TimelineAppointmentRow, currentMinOfDay: number, isToday: boolean) => {
     const aStart = appointment.start_unloading_time 
       ? parseTime(appointment.start_unloading_time) 
       : parseTime(appointment.scheduled_time)
       
-    // Prioridad: 1. Fin físico real, 2. Fin planeado explícito (extensión), 3. Estimado
     let aEnd = appointment.scheduled_end_time 
       ? parseTime(appointment.scheduled_end_time) 
       : parseTime(appointment.scheduled_time) + (appointment.estimated_duration_minutes || 60)
 
-    if (appointment.end_unloading_time) {
+    let isDelayed = false
+
+    if (appointment.status === 'DESCARGANDO' && isToday) {
+      if (currentMinOfDay >= aEnd) {
+        isDelayed = true
+        aEnd = currentMinOfDay
+      }
+    } else if (appointment.status === 'FINALIZADO' && appointment.end_unloading_time) {
       aEnd = parseTime(appointment.end_unloading_time)
     }
 
     const leftOffset = ((aStart - startMin) / zoomLevel) * cellWidth
     const width = ((aEnd - aStart) / zoomLevel) * cellWidth
 
-    return { left: leftOffset, width: Math.max(width, cellWidth / 2) }
+    return { left: leftOffset, width: Math.max(width, cellWidth / 2), isDelayed }
   }
 
   const getStatusColor = (status: string) => {
@@ -162,7 +180,7 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
   const handleResizeDown = (e: React.MouseEvent, appointment: TimelineAppointmentRow) => {
     e.preventDefault()
     e.stopPropagation()
-    const { width } = getBlockStyle(appointment)
+    const { width } = getGhostBlockStyle(appointment)
     setResizingState({
       appointmentId: appointment.id,
       startWidth: width,
@@ -224,6 +242,50 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
   const currentTimeOffset = isToday && currentMinOfDay >= startMin && currentMinOfDay <= endMin
     ? ((currentMinOfDay - startMin) / zoomLevel) * cellWidth
     : null
+
+  // Auto Extend Detection
+  useEffect(() => {
+    if (!isToday || !onAutoExtend) return
+    const currentMin = new Date().getHours() * 60 + new Date().getMinutes()
+    appointments.forEach(appt => {
+      if (appt.status === 'DESCARGANDO') {
+        const endMin = appt.scheduled_end_time 
+          ? parseTime(appt.scheduled_end_time) 
+          : parseTime(appt.scheduled_time) + (appt.estimated_duration_minutes || 60)
+        
+        if (currentMin >= endMin) {
+          onAutoExtend(appt.id)
+        }
+      }
+    })
+  }, [currentTime, appointments, isToday, onAutoExtend])
+
+  // Drag and Drop from Waitlist handlers
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
+
+  const handleDrop = (e: React.DragEvent, dockId: number) => {
+    e.preventDefault()
+    const appointmentId = e.dataTransfer.getData('text/plain')
+    if (!appointmentId || !onDropFromWaitlist) return
+
+    // Calculate time based on drop X coordinate
+    const rect = e.currentTarget.getBoundingClientRect()
+    const contentOffset = DOCK_LABEL_WIDTH
+    const dropX = e.clientX - rect.left - contentOffset
+    
+    if (dropX < 0) return // Dropped on the dock label
+
+    const slotDelta = Math.round(dropX / cellWidth)
+    const newStartMin = startMin + slotDelta * zoomLevel
+    const h = Math.floor(newStartMin / 60)
+    const m = newStartMin % 60
+    const newTimeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:00`
+
+    onDropFromWaitlist(appointmentId, dockId, newTimeStr)
+  }
 
   return (
     <div className="flex flex-col h-full bg-white relative">
@@ -300,6 +362,8 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
                 dockIndex % 2 === 0 ? 'bg-white' : 'bg-surface-container-lowest'
               )} 
               style={{ height: ROW_HEIGHT }}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, dock.id)}
             >
               {/* Dock Label */}
               <div className="flex-shrink-0 flex items-center gap-2 px-4 border-r border-surface-container sticky left-0 z-10 bg-inherit" style={{ width: DOCK_LABEL_WIDTH }}>
@@ -315,8 +379,11 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
 
                 {/* Appointment Blocks */}
                 {dockAppointments.map(appointment => {
-                  const { left, width } = getBlockStyle(appointment)
+                  const ghost = getGhostBlockStyle(appointment)
+                  const real = getRealBlockStyle(appointment, currentMinOfDay, isToday)
+                  
                   const isDragging = dragState?.appointmentId === appointment.id
+                  const hasStartedPhysical = appointment.start_unloading_time != null
                   
                   let transformX = 0, transformY = 0
                   if (isDragging && dragState) {
@@ -327,21 +394,38 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
                   const totalBoxes = appointment.appointment_purchase_orders?.reduce((s, po) => s + (po.box_count || 0), 0) || appointment.box_count || 0
 
                   return (
-                    <div
-                      key={appointment.id}
-                      className={cn(
-                        "absolute top-1.5 bottom-1.5 rounded-lg border cursor-grab active:cursor-grabbing transition-shadow flex flex-col justify-center px-2.5 overflow-hidden group",
-                        getStatusColor(appointment.status),
-                        isDragging && "shadow-float z-30 opacity-90 scale-[1.02]"
+                    <div key={appointment.id}>
+                      {/* GHOST BLOCK (Planned) */}
+                      {hasStartedPhysical && (
+                        <div
+                          className="absolute top-1.5 bottom-1.5 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 pointer-events-none z-10"
+                          style={{
+                            left: ghost.left,
+                            width: ghost.width,
+                            transform: isDragging ? `translate(${transformX}px, ${transformY}px)` : undefined,
+                          }}
+                        />
                       )}
-                        style={{ 
-                          left, 
-                          width: resizingState?.appointmentId === appointment.id ? resizingState.currentWidth : width,
-                          transform: isDragging ? `translate(${transformX}px, ${transformY}px)` : undefined,
-                        }}
-                        onMouseDown={(e) => handleMouseDown(e, appointment)}
-                        onDoubleClick={() => onAppointmentEdit(appointment)}
-                      >
+
+                      {/* REAL BLOCK (Operational) */}
+                      <div
+                        className={cn(
+                          "absolute top-1.5 bottom-1.5 rounded-lg border cursor-grab active:cursor-grabbing transition-shadow flex flex-col justify-center px-2.5 overflow-hidden group/appt shadow-sm",
+                          getStatusColor(appointment.status),
+                          isDragging && "shadow-float z-40 opacity-90 scale-[1.02]",
+                          !hasStartedPhysical && "z-20",
+                          hasStartedPhysical && "z-30",
+                          // Striped pattern if Delayed
+                          real.isDelayed && "bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(0,0,0,0.05)_10px,rgba(0,0,0,0.05)_20px)] border-warning/60"
+                        )}
+                          style={{ 
+                            left: hasStartedPhysical ? real.left : ghost.left, 
+                            width: resizingState?.appointmentId === appointment.id ? resizingState.currentWidth : (hasStartedPhysical ? real.width : ghost.width),
+                            transform: isDragging ? `translate(${transformX}px, ${transformY}px)` : undefined,
+                          }}
+                          onMouseDown={(e) => handleMouseDown(e, appointment)}
+                          onDoubleClick={() => onAppointmentEdit(appointment)}
+                        >
                         {/* Resize Handle */}
                         {(appointment.status !== 'FINALIZADO' && appointment.status !== 'CANCELADO') && (
                           <div 
@@ -390,12 +474,13 @@ export function DockTimeline({ date, appointments, docks, settings, onAppointmen
                         {/* Edit Button (replacing the simple +) */}
                         <button 
                           onClick={(e) => { e.stopPropagation(); onAppointmentEdit(appointment) }}
-                          className="absolute right-1 top-1 bg-white border border-surface-container shadow-sm p-1 rounded-lg hover:bg-surface-container transition-all group/btn"
+                          className="absolute right-1 top-1 bg-white border border-surface-container shadow-sm p-1 rounded-lg hover:bg-surface-container transition-all group-hover/appt:opacity-100 opacity-0"
                           title="Gestionar Tiempo y Datos"
                         >
-                          <span className="material-symbols-outlined text-[16px] text-primary group-hover/btn:scale-110 transition-transform">add_circle</span>
+                          <span className="material-symbols-outlined text-[16px] text-primary transition-transform">add_circle</span>
                         </button>
                       </div>
+                    </div>
                   )
                 })}
               </div>

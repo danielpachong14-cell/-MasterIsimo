@@ -146,16 +146,18 @@ export async function assignDockAction({
   return { success: true }
 }
 
-export async function shiftAndExtendAppointmentAction({
+export async function recalculateTimelineCascade({
   appointmentId,
   newDockId,
   newStartTime,
-  newEndTime
+  newEndTime,
+  isAutomaticExtension = false
 }: {
   appointmentId: string;
   newDockId?: number;
   newStartTime?: string;
   newEndTime?: string;
+  isAutomaticExtension?: boolean;
 }) {
   const supabase = await createClient()
 
@@ -190,13 +192,15 @@ export async function shiftAndExtendAppointmentAction({
   const finalEndTimeStr = formatTimeFromMinutes(finalEndMin)
   const newDuration = finalEndMin - finalStartMin
 
-  // Re-aplicar integradad de negocio para timestamps si la cita ya estaba en operación
   const traceabilityUpdates = buildStatusTransitionUpdates(targetAppt, targetAppt.status)
-  // Remover "status" ya que no lo vamos a cambiar, solo queremos los backfills de tiempo generados
   delete traceabilityUpdates.status
 
-  // Preparar transacciones de actualización
+  // Preparar transacciones de actualización y auditoría
   const updatesToApply: Record<string, unknown>[] = []
+  const auditLogsToApply: Record<string, unknown>[] = []
+  
+  // UUID de correlación para el evento en cascada
+  const triggerEventId = crypto.randomUUID()
 
   updatesToApply.push({
     id: targetAppt.id,
@@ -207,8 +211,19 @@ export async function shiftAndExtendAppointmentAction({
     ...traceabilityUpdates
   })
 
+  auditLogsToApply.push({
+    appointment_id: targetAppt.id,
+    action: 'EDIT',
+    changed_fields: {
+      scheduled_time: { old: targetAppt.scheduled_time, new: finalStartTimeStr },
+      scheduled_end_time: { old: targetAppt.scheduled_end_time, new: finalEndTimeStr },
+      dock_id: { old: targetAppt.dock_id, new: finalDockId },
+      trigger_event_id: triggerEventId
+    },
+    notes: isAutomaticExtension ? "Extensión automática +15m por demora en muelle." : "Reubicación/Edición manual de cita raíz."
+  })
+
   // 2. Obtener TODAS las citas posteriores en ese mismo muelle, ese mismo día
-  // Esto es vital para calcular la cascada (Ripple Effect)
   const { data: subsequentAppts, error: subError } = await supabase
     .from("appointments")
     .select("id, scheduled_time, scheduled_end_time, estimated_duration_minutes, status")
@@ -234,25 +249,34 @@ export async function shiftAndExtendAppointmentAction({
     const apptDuration = appt.estimated_duration_minutes || 60
 
     if (apptStartMin < currentBlockEnd) {
-      // Conflicto detectado -> Desplazar en cascada manteniendo duración original
+      // Conflicto detectado -> Desplazar en cascada
       const snappedStart = snapToNext(currentBlockEnd)
       const snappedEnd = snappedStart + apptDuration
       
+      const newTimeStr = formatTimeFromMinutes(snappedStart) + ":00"
+      const newEndStr = formatTimeFromMinutes(snappedEnd) + ":00"
+
       updatesToApply.push({
         id: appt.id,
         dock_id: finalDockId,
-        scheduled_time: formatTimeFromMinutes(snappedStart) + ":00",
-        scheduled_end_time: formatTimeFromMinutes(snappedEnd) + ":00",
+        scheduled_time: newTimeStr,
+        scheduled_end_time: newEndStr,
         estimated_duration_minutes: apptDuration
+      })
+
+      auditLogsToApply.push({
+        appointment_id: appt.id,
+        action: 'EDIT',
+        changed_fields: {
+          scheduled_time: { old: appt.scheduled_time, new: newTimeStr },
+          scheduled_end_time: { old: appt.scheduled_end_time, new: newEndStr },
+          trigger_event_id: triggerEventId
+        },
+        notes: "Reagendamiento en cascada por colisión de tiempos."
       })
       
       currentBlockEnd = snappedEnd
-    }
-    // Si la cita subsecuente empieza DESPUÉS del fin del bloque actual, 
-    // la cascada se detiene (ya no hay colisión física).
-    // Nota: Como no podemos hacer un break porque podría haber una cita mal agendada en medio,
-    // actualizamos el currentBlockEnd para que la siguiente validación sea precisa.
-    else {
+    } else {
       const apptEndMin = appt.scheduled_end_time 
         ? parseTime(appt.scheduled_end_time) 
         : apptStartMin + apptDuration
@@ -261,7 +285,7 @@ export async function shiftAndExtendAppointmentAction({
     }
   }
 
-  // 4. Aplicar updates a Supabase en lote (Promesa All para concurrencia)
+  // 4. Aplicar updates a Supabase en lote
   const updatePromises = updatesToApply.map(update => 
     supabase.from("appointments").update({
       dock_id: update.dock_id,
@@ -275,10 +299,89 @@ export async function shiftAndExtendAppointmentAction({
   const hasErrors = results.some(r => r.error != null)
 
   if (hasErrors) {
-    console.error("[shiftAndExtendAppointmentAction] Error en ejecución de cascada", results.map(r => r.error))
+    console.error("[recalculateTimelineCascade] Error en ejecución de cascada", results.map(r => r.error))
     return { success: false, error: "Fallo parcial en desplazamiento de citas de la cascada." }
   }
 
+  // 5. Audit Log batch
+  await supabase.from("appointment_audit_log").insert(auditLogsToApply)
+
   return { success: true }
+}
+
+export async function extendAppointmentAutomaticallyAction(appointmentId: string) {
+  const supabase = await createClient()
+
+  // Buscar cita para saber hora final y agregarle 15 minutos
+  const { data: targetAppt, error: targetError } = await supabase
+    .from("appointments")
+    .select("id, scheduled_time, scheduled_end_time, estimated_duration_minutes")
+    .eq("id", appointmentId)
+    .single()
+
+  if (targetError || !targetAppt) return { success: false }
+
+  const endMin = targetAppt.scheduled_end_time 
+    ? parseTime(targetAppt.scheduled_end_time) 
+    : parseTime(targetAppt.scheduled_time) + (targetAppt.estimated_duration_minutes || 60)
+  
+  const newEndMin = endMin + 15
+  const newEndTimeStr = formatTimeFromMinutes(newEndMin) + ":00"
+
+  // Llamar al recalculador para que empuje lo demás y genere los logs
+  return recalculateTimelineCascade({
+    appointmentId,
+    newEndTime: newEndTimeStr,
+    isAutomaticExtension: true
+  })
+}
+
+export async function assignFromWaitlistAction({
+  appointmentId,
+  dockId,
+  date,
+  startTime
+}: {
+  appointmentId: string;
+  dockId: number;
+  date: string;
+  startTime: string;
+}) {
+  const supabase = await createClient()
+
+  // Obtener la cita actual (EN_ESPERA)
+  const { data: appt, error: apptError } = await supabase
+    .from("appointments")
+    .select("status, estimated_duration_minutes, environment_id, vehicle_type_id")
+    .eq("id", appointmentId)
+    .single()
+
+  if (apptError || !appt) return { success: false, error: "Cita no encontrada." }
+  if (appt.status !== 'EN_ESPERA') return { success: false, error: "La cita no está en espera." }
+
+  const duration = appt.estimated_duration_minutes || 60
+
+  // Delegar validación completa al assignDockAction (que utiliza checkDockAvailability)
+  const result = await assignDockAction({
+    appointmentId,
+    dockId,
+    scheduledDate: date,
+    scheduledTime: startTime,
+    newStatus: 'PENDIENTE',
+    forceReason: "Reubicación desde Waitlist"
+  })
+
+  // Si fue exitosa, auditar que vino del waitlist
+  if (result.success) {
+    const triggerEventId = crypto.randomUUID()
+    await supabase.from("appointment_audit_log").insert({
+      appointment_id: appointmentId,
+      action: 'STATUS_CHANGE',
+      changed_fields: { status: { old: 'EN_ESPERA', new: 'PENDIENTE' }, trigger_event_id: triggerEventId },
+      notes: `Reasignado manualmente al muelle ID ${dockId} a las ${startTime.substring(0,5)}`
+    })
+  }
+
+  return result
 }
 

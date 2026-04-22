@@ -2,25 +2,46 @@
 
 Este documento detalla la implementación técnica avanzada del YMS, centrada en el rendimiento, la seguridad y la escalabilidad de Next.js 15.
 
-## 1. Patrón Arquitectónico: Server-First
+## 1. Arquitectura de Sistemas y Flujo de Datos
 
-El sistema prioriza la ejecución de lógica y el fetching de datos en el servidor para minimizar el JS enviado al cliente (Hydration) y proteger la lógica de negocio.
+MasterIsimo utiliza una arquitectura **Server-First** sobre Next.js 15, optimizada para la resiliencia operativa y la seguridad de los datos.
 
-### A. Server Components vs Client Components
-- **Server Components:** Utilizados para el 90% del fetching de datos (e.g., `resumen/page.tsx`, `kanban/page.tsx`). Permiten acceso directo a Supabase sin exponer el cliente del navegador.
-- **Client Components:** Reservados exclusivamente para interactividad (Drag & Drop, Modales, Formularios dinámicos). Ejemplo: `KanbanBoard`, `SupplierForm`.
+### A. Diagrama de Arquitectura de Alto Nivel
+```mermaid
+graph TD
+    subgraph "Nube (Vercel + Supabase)"
+        A[Next.js App Router] -->|SQL/RLS| B[(PostgreSQL Supabase)]
+        A -->|Auth| C[Supabase Auth]
+        A -->|Realtime| D[Supabase Realtime]
+    end
 
-### B. El Puente: Server Actions
-Para que los Client Components ejecuten lógica privilegiada (como el motor de agendamiento) sin exponer lógica de BD, se utilizan **Server Actions**.
+    subgraph "Capas de Aplicación"
+        E[Server Components] -->|Direct Fetch| B
+        F[Client Components] -->|Server Actions| A
+        G[Services lib/services] -->|Business Logic| A
+    end
 
-### C. Seguridad de Ruteo: Middleware & Public Access
-El sistema implementa una capa de seguridad en `middleware.ts` que intercepta todas las peticiones para validar la sesión de Supabase:
+    subgraph "Clientes"
+        H[Dashboard Operativo] --- F
+        I[Portal Público Proveedores] --- F
+        J[Check-in Portería] --- F
+    end
 
-1. **Rutas Privadas:** Requieren autenticación (`/operacion/*`, `/admin/*`, `/perfil`).
-2. **Rutas Públicas (Whitelisted):** Acceso sin token para proveedores y transportadores:
-    - `/proveedores/**` (Agendamiento externo).
-    - `/p/**` (Reporte de llegada/Check-in).
-3. **Escudo RLS:** En las rutas públicas, la seguridad se transfiere desde la sesión del usuario hacia las políticas de **RLS (Row Level Security)** en Postgres, permitiendo inserciones anónimas solo bajo esquemas de validación estrictos.
+    F -->|State Mgmt| K[Zustand uiStore]
+```
+
+### B. Ciclo de Vida y Trazabilidad de la Cita
+Las transiciones de estado disparan automáticamente el registro de marcas de tiempo (timestamps).
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDIENTE: Creación (Regla de Scheduling)
+    PENDIENTE --> EN_PORTERIA: Arribo (Check-in)
+    EN_PORTERIA --> EN_MUELLE: Asignación / Llamado
+    EN_MUELLE --> DESCARGANDO: Inicio Operación
+    DESCARGANDO --> FINALIZADO: Cierre Operación
+    PENDIENTE --> CANCELADO: Incumplimiento/Anulación
+```
 
 ---
 

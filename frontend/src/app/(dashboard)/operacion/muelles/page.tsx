@@ -13,8 +13,10 @@ import {
   TimelineAppointmentRow,
   TimelineDockRow,
 } from "@/lib/services/appointments"
-import { 
-  shiftAndExtendAppointmentAction
+import {
+  recalculateTimelineCascade,
+  extendAppointmentAutomaticallyAction,
+  assignFromWaitlistAction
 } from "@/app/actions/appointments"
 import { ConfirmModal } from "./components/ConfirmModal"
 import { EditDockModal } from "./components/EditDockModal"
@@ -41,6 +43,14 @@ export default function MuellesPage() {
     setTimelineExtendModal: setExtendModal,
     clearTimelineModals
   } = useUIStore()
+
+  // Estado para la sugerencia inteligente de reslotting
+  const [smartCollisionModal, setSmartCollisionModal] = useState<{
+    appointmentId: string;
+    originalTargetDockId: number;
+    newTime: string;
+    suggestedDockId: number | null;
+  } | null>(null)
 
   const supabase = createClient()
 
@@ -93,7 +103,6 @@ export default function MuellesPage() {
 
   const handleConfirmMove = async () => {
     if (!confirmModal) return
-    setActionLoading(true)
 
     // Validación de colisión (en memoria, usando los datos ya cargados)
     const appt = appointments.find((a) => a.id === confirmModal.appointmentId)
@@ -112,23 +121,47 @@ export default function MuellesPage() {
     )
 
     if (hasCollision) {
-      showToast("Conflicto: El espacio en el muelle no está disponible.", "error")
-      setActionLoading(false)
+      // SMART COLLISION DETECTION: Buscar si hay otro muelle libre en ese mismo instante
+      const availableDock = docks.find(d => {
+        if (d.id === confirmModal.newDockId) return false;
+
+        const collidesInThisDock = appointments.some(
+          a => a.dock_id === d.id &&
+            a.status !== "CANCELADO" &&
+            parseTime(a.scheduled_time) < proposedEndMin &&
+            (parseTime(a.scheduled_end_time || "") || parseTime(a.scheduled_time) + (a.estimated_duration_minutes || 60)) > proposedStartMin
+        );
+        return !collidesInThisDock;
+      });
+
       clearTimelineModals()
-      return
+      setSmartCollisionModal({
+        appointmentId: confirmModal.appointmentId,
+        originalTargetDockId: confirmModal.newDockId,
+        newTime: confirmModal.newTime,
+        suggestedDockId: availableDock?.id || null
+      });
+      return;
     }
 
-    const newEndTime = formatTimeFromMinutes(proposedEndMin)
+    // No hay colisión, aplicar normalmente
+    await executeCascadeMove(confirmModal.appointmentId, confirmModal.newDockId, confirmModal.newTime, proposedEndMin)
+  }
 
-    const { error, success } = await shiftAndExtendAppointmentAction({
-      appointmentId: confirmModal.appointmentId,
-      newDockId: confirmModal.newDockId,
-      newStartTime: confirmModal.newTime,
-      newEndTime: newEndTime + ":00"
+  const executeCascadeMove = async (appointmentId: string, dockId: number, newTime: string, proposedEndMin: number) => {
+    setActionLoading(true)
+    const newEndTime = formatTimeFromMinutes(proposedEndMin) + ":00"
+
+    const { error, success } = await recalculateTimelineCascade({
+      appointmentId: appointmentId,
+      newDockId: dockId,
+      newStartTime: newTime,
+      newEndTime: newEndTime
     })
 
     setActionLoading(false)
     clearTimelineModals()
+    setSmartCollisionModal(null)
 
     if (!success) {
       showToast(error || "Error al reubicar la cita.", "error")
@@ -136,6 +169,30 @@ export default function MuellesPage() {
       showToast("Cita reubicada exitosamente.", "success")
       fetchData()
     }
+  }
+
+  const handleDropFromWaitlist = async (appointmentId: string, dockId: number, startTime: string) => {
+    setActionLoading(true)
+    const { success, error } = await assignFromWaitlistAction({
+      appointmentId,
+      dockId,
+      date,
+      startTime
+    });
+
+    setActionLoading(false);
+    if (!success) {
+      showToast(error || "Error asignando cita desde espera.", "error");
+    } else {
+      showToast("Cita programada correctamente desde espera.", "success");
+      fetchData();
+    }
+  }
+
+  const handleAutoExtend = async (appointmentId: string) => {
+    await extendAppointmentAutomaticallyAction(appointmentId);
+    showToast("Extensión automática aplicada a muelle demorado.", "error"); // Use error styling to act as warning
+    fetchData();
   }
 
   const handleAppointmentEdit = useCallback((appointment: TimelineAppointmentRow) => {
@@ -200,7 +257,7 @@ export default function MuellesPage() {
     async (id: string, endTime: string) => {
       setActionLoading(true)
 
-      const { error, success } = await shiftAndExtendAppointmentAction({
+      const { error, success } = await recalculateTimelineCascade({
         appointmentId: id,
         newEndTime: endTime
       })
@@ -250,23 +307,27 @@ export default function MuellesPage() {
   const occupiedDocks = new Set(
     appointments.filter((a) => ["EN_MUELLE", "DESCARGANDO"].includes(a.status)).map((a) => a.dock_id)
   ).size
-  const totalAppointments = appointments.length
+  const timelineAppointments = appointments.filter(a => a.status !== 'EN_ESPERA');
+  const waitlistAppointments = appointments.filter(a => a.status === 'EN_ESPERA');
+  const totalAppointments = timelineAppointments.length
 
   const confirmDock = confirmModal ? docks.find((d) => d.id === confirmModal.newDockId) : null
   const confirmAppt = confirmModal
     ? appointments.find((a) => a.id === confirmModal.appointmentId)
     : null
 
+  const smartModalAppt = smartCollisionModal ? appointments.find((a) => a.id === smartCollisionModal.appointmentId) : null;
+  const smartModalSuggestedDock = smartCollisionModal?.suggestedDockId ? docks.find(d => d.id === smartCollisionModal.suggestedDockId) : null;
+
   return (
     <div className="space-y-8">
       {/* Toast */}
       {toast && (
         <div
-          className={`fixed top-6 right-6 z-[60] px-6 py-4 rounded-xl shadow-float font-bold text-sm flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${
-            toast.type === "success"
+          className={`fixed top-6 right-6 z-[60] px-6 py-4 rounded-xl shadow-float font-bold text-sm flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 ${toast.type === "success"
               ? "bg-tertiary-fixed text-on-tertiary-fixed-variant"
               : "bg-error-container text-on-error-container"
-          }`}
+            }`}
         >
           <span className="material-symbols-outlined text-lg">
             {toast.type === "success" ? "check_circle" : "error"}
@@ -347,7 +408,7 @@ export default function MuellesPage() {
         </div>
       </div>
 
-      {/* Timeline */}
+      {/* Timeline & Waitlist Area */}
       {loading || !settings ? (
         <div className="h-[400px] animate-pulse bg-surface-container rounded-2xl flex items-center justify-center">
           <p className="text-sm font-bold text-on-surface-variant/40">Cargando línea de tiempo...</p>
@@ -361,15 +422,75 @@ export default function MuellesPage() {
           </p>
         </Card>
       ) : (
-        <DockTimeline
-          date={date}
-          appointments={appointments}
-          docks={docks}
-          settings={settings}
-          onAppointmentMove={handleAppointmentMove}
-          onAppointmentExtend={handleAppointmentExtend}
-          onAppointmentEdit={handleAppointmentEdit}
-        />
+        <div className="flex gap-6 h-[700px] min-h-[60vh]">
+          {/* Waitlist Sidebar */}
+          <div className="w-64 flex-shrink-0 flex flex-col bg-surface-container-lowest border border-surface-container rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-surface-container bg-surface-container-low/50">
+              <h3 className="text-sm font-black text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">hourglass_top</span>
+                EN ESPERA
+                <span className="ml-auto bg-error/10 text-error px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  {waitlistAppointments.length}
+                </span>
+              </h3>
+              <p className="text-[10px] text-on-surface-variant mt-1 leading-tight">
+                Arrastra hacia la línea de tiempo para reasignar.
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-surface-container-lowest/50">
+              {waitlistAppointments.length === 0 && (
+                <div className="py-8 text-center px-4">
+                  <span className="material-symbols-outlined text-3xl text-on-surface-variant/20 mb-2">check_circle</span>
+                  <p className="text-xs text-on-surface-variant/60 font-medium">No hay citas en espera.</p>
+                </div>
+              )}
+              {waitlistAppointments.map((appt) => (
+                <div
+                  key={appt.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", appt.id)
+                    e.dataTransfer.effectAllowed = "move"
+                  }}
+                  className="bg-white border-2 border-dashed border-primary/20 p-3 rounded-xl cursor-grab active:cursor-grabbing hover:border-primary/50 hover:shadow-md transition-all group"
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <p className="text-xs font-black uppercase text-on-surface group-hover:text-primary transition-colors">{appt.license_plate}</p>
+                    <span className="text-[10px] opacity-60 font-bold">{appt.scheduled_time.substring(0, 5)}</span>
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant font-medium truncate mb-2">{appt.company_name}</p>
+
+                  <div className="flex gap-2">
+                    <span className="text-[9px] bg-surface-container px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[10px]">inventory_2</span>
+                      {appt.box_count || 0}
+                    </span>
+                    <span className="text-[9px] bg-surface-container px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[10px]">timer</span>
+                      {appt.estimated_duration_minutes}m
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Timeline Grid */}
+          <div className="flex-1 min-w-0 overflow-hidden rounded-2xl border border-surface-container shadow-sm">
+            <DockTimeline
+              date={date}
+              appointments={timelineAppointments}
+              docks={docks}
+              settings={settings}
+              onAppointmentMove={handleAppointmentMove}
+              onAppointmentExtend={handleAppointmentExtend}
+              onAppointmentEdit={handleAppointmentEdit}
+              onAutoExtend={handleAutoExtend}
+              onDropFromWaitlist={handleDropFromWaitlist}
+            />
+          </div>
+        </div>
       )}
 
       {/* Legend */}
@@ -415,6 +536,38 @@ export default function MuellesPage() {
         loading={actionLoading}
       />
 
+      {/* ═══ Smart Collision Modal ═══ */}
+      <ConfirmModal
+        isOpen={!!smartCollisionModal}
+        onClose={() => setSmartCollisionModal(null)}
+        onConfirm={async () => {
+          if (!smartCollisionModal) return;
+          const { appointmentId, newTime } = smartCollisionModal;
+
+          let duration = 60;
+          const appt = appointments.find(a => a.id === appointmentId);
+          if (appt) duration = appt.estimated_duration_minutes || 60;
+
+          const proposedEndMin = parseTime(newTime) + duration;
+
+          if (smartCollisionModal.suggestedDockId) {
+            // Mover al muelle sugerido
+            await executeCascadeMove(appointmentId, smartCollisionModal.suggestedDockId, newTime, proposedEndMin)
+          } else {
+            // No hay muelle, simplemente forzar el empuje de todos
+            await executeCascadeMove(appointmentId, smartCollisionModal.originalTargetDockId, newTime, proposedEndMin)
+          }
+        }}
+        loading={actionLoading}
+        title={smartCollisionModal?.suggestedDockId ? "Conflicto Detectado - Sugerencia" : "Conflicto de Citas"}
+        message={smartCollisionModal?.suggestedDockId ?
+          `El ${docks.find(d => d.id === smartCollisionModal?.originalTargetDockId)?.name} está ocupado en ese horario. Sin embargo, el sistema ha detectado que el ${smartModalSuggestedDock?.name} está LIBRE y es compatible.\n\n¿Deseas aceptar la sugerencia inteligente y enviarlo al ${smartModalSuggestedDock?.name}, o ignorar y empujar en CASCADA todas las citas?` :
+          `No hay muelles alternativos. Si guardas, las citas subsecuentes serán desplazadas en cascada hacia el futuro para liberar espacio.`
+        }
+        confirmText={smartCollisionModal?.suggestedDockId ? "Aceptar Sugerencia (Cambiar Muelle)" : "Forzar y Empujar (Cascada)"}
+        cancelText="Cancelar"
+      />
+
       {/* ═══ Extend Time Modal ═══ */}
       <ConfirmModal
         isOpen={!!extendModal}
@@ -422,9 +575,8 @@ export default function MuellesPage() {
         onConfirm={handleConfirmExtend}
         loading={actionLoading}
         title="Extender Tiempo de Descarga"
-        message={`¿Deseas extender 30 minutos adicionales al tiempo de descarga de ${
-          appointments.find((a) => a.id === extendModal)?.license_plate || "esta cita"
-        }? Esto actualizará la hora de fin en la línea de tiempo.`}
+        message={`¿Deseas extender 30 minutos adicionales al tiempo de descarga de ${appointments.find((a) => a.id === extendModal)?.license_plate || "esta cita"
+          }? Esto actualizará la hora de fin en la línea de tiempo.`}
       />
     </div>
   )

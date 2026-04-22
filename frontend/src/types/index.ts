@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'PENDIENTE' | 'EN_PORTERIA' | 'EN_MUELLE' | 'DESCARGANDO' | 'FINALIZADO' | 'CANCELADO';
+export type AppointmentStatus = 'PENDIENTE' | 'EN_PORTERIA' | 'EN_MUELLE' | 'DESCARGANDO' | 'FINALIZADO' | 'CANCELADO' | 'EN_ESPERA';
 
 export interface AppointmentPurchaseOrder {
   id: string;

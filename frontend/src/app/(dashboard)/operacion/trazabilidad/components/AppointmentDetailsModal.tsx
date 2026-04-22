@@ -121,6 +121,23 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
     }
   }, [isOpen, appointment?.id, supabase])
 
+  // Hydrate data when modal opens to ensure we have the full record (prevent overwriting partial data)
+  useEffect(() => {
+    async function hydrateData() {
+      if (isOpen && appointment?.id) {
+        try {
+          const fullAppt = await fetchAppointmentById(supabase, appointment.id)
+          if (fullAppt) {
+            setCurrentAppointment(fullAppt)
+          }
+        } catch (err) {
+          console.error("[AppointmentDetailsModal] Hydration error:", err)
+        }
+      }
+    }
+    hydrateData()
+  }, [isOpen, appointment?.id, supabase])
+
   useEffect(() => {
     if (currentAppointment) {
       setNoteHistory(currentAppointment.notes || currentAppointment.comments || "")

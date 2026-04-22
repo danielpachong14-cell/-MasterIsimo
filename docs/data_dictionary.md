@@ -1,6 +1,19 @@
-# Diccionario de Datos y Tipos (SSoT) 📊
-
 Este documento mapea la estructura de la base de datos PostgreSQL (Supabase) con el sistema de tipado estricto en TypeScript.
+
+## 0. Modelo Relacional (Diagrama ER)
+
+```mermaid
+erDiagram
+    ENVIRONMENTS ||--o{ DOCKS : "pertenece"
+    ENVIRONMENTS ||--o{ APPOINTMENTS : "agrupa"
+    ENVIRONMENTS ||--o{ SCHEDULING_RULES : "define"
+    VEHICLE_TYPES ||--o{ APPOINTMENTS : "utiliza"
+    VEHICLE_TYPES ||--o{ SCHEDULING_RULES : "aplica a"
+    DOCKS ||--o{ APPOINTMENTS : "asignado a"
+    APPOINTMENTS ||--o{ APPOINTMENT_PURCHASE_ORDERS : "contiene"
+    APPOINTMENTS ||--o{ APPOINTMENT_AUDIT_LOG : "audita"
+    SCHEDULING_RULES ||--o{ APPOINTMENTS : "gobierna"
+```
 
 ## 1. Esquema de Base de Datos (Core Tables)
 

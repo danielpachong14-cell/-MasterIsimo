@@ -9,6 +9,8 @@ interface ConfirmModalProps {
   title: string
   message: string
   loading: boolean
+  confirmText?: string
+  cancelText?: string
 }
 
 /**
@@ -22,6 +24,8 @@ export function ConfirmModal({
   title,
   message,
   loading,
+  confirmText,
+  cancelText,
 }: ConfirmModalProps) {
   if (!isOpen) return null
 
@@ -39,13 +43,13 @@ export function ConfirmModal({
             <span className="material-symbols-outlined text-2xl text-tertiary">swap_horiz</span>
           </div>
           <h3 className="text-xl font-black font-headline text-center">{title}</h3>
-          <p className="text-sm text-on-surface-variant text-center leading-relaxed">{message}</p>
+          <p className="text-sm border-t border-b border-surface-container py-3 text-on-surface-variant text-center leading-relaxed whitespace-pre-wrap">{message}</p>
           <div className="flex gap-3 pt-2">
             <Button variant="secondary" className="flex-1" onClick={onClose} disabled={loading}>
-              Cancelar
+              {cancelText || "Cancelar"}
             </Button>
-            <Button className="flex-1" onClick={onConfirm} disabled={loading}>
-              {loading ? "Procesando..." : "Confirmar Cambio"}
+            <Button className="flex-1 whitespace-normal break-words py-1 min-h-[40px] text-[12px] font-black" onClick={onConfirm} disabled={loading}>
+              {loading ? "Procesando..." : (confirmText || "Confirmar Cambio")}
             </Button>
           </div>
         </div>

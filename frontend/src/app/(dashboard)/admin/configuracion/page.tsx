@@ -337,7 +337,7 @@ export default function ConfiguracionPage() {
                           <button onClick={() => { setEditingItem(dock); setActiveModal('dock') }} className="p-1.5 hover:bg-primary/10 text-primary rounded-lg">
                             <span className="material-symbols-outlined text-sm">edit</span>
                           </button>
-                          <button onClick={() => handleDelete('docks', dock.id)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg">
+                          <button onClick={() => handleDelete('docks', dock.id, false)} className="p-1.5 hover:bg-error-container hover:text-error rounded-lg">
                             <span className="material-symbols-outlined text-sm">delete</span>
                           </button>
                         </div>
