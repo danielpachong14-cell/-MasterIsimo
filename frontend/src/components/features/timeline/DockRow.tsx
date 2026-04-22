@@ -1,7 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { TimelineDockRow, TimelineAppointmentRow } from "@/lib/services/appointments"
+import { TimelineDockRow } from "@/lib/services/appointments"
 
 interface DockRowProps {
   dock: TimelineDockRow

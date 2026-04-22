@@ -359,7 +359,6 @@ export async function assignFromWaitlistAction({
   if (apptError || !appt) return { success: false, error: "Cita no encontrada." }
   if (appt.status !== 'EN_ESPERA') return { success: false, error: "La cita no está en espera." }
 
-  const duration = appt.estimated_duration_minutes || 60
 
   // Delegar validación completa al assignDockAction (que utiliza checkDockAvailability)
   const result = await assignDockAction({

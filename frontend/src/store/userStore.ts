@@ -18,8 +18,8 @@ interface UserState {
   
   initialize: () => Promise<() => void>
   fetchProfile: () => Promise<void>
-  fetchSessions: () => Promise<{ success: boolean; data?: any; error?: string }>
-  fetchActivityLog: () => Promise<{ success: boolean; data?: any; error?: string }>
+  fetchSessions: () => Promise<{ success: boolean; data?: UserSession[]; error?: string }>
+  fetchActivityLog: () => Promise<{ success: boolean; data?: UserActivityLog[]; error?: string }>
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ success: boolean; error?: string }>
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>
   logoutOthers: () => Promise<{ success: boolean; error?: string }>
@@ -66,8 +66,8 @@ export const useUserStore = create<UserState>((set, get) => {
             })
             .subscribe()
         }
-      } catch (err: any) {
-        set({ error: err.message || 'Error inicializando perfil' })
+      } catch (err) {
+        set({ error: (err as Error).message || 'Error inicializando perfil' })
       } finally {
         set({ loading: false })
       }
@@ -102,8 +102,8 @@ export const useUserStore = create<UserState>((set, get) => {
             }
           })
         }
-      } catch (err: any) {
-        set({ error: err.message })
+      } catch (err) {
+        set({ error: (err as Error).message })
       }
     },
 
@@ -114,8 +114,8 @@ export const useUserStore = create<UserState>((set, get) => {
         if (error) throw error
         set({ sessions: data || [] })
         return { success: true, data }
-      } catch (err: any) {
-        return { success: false, error: err.message }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
       } finally {
         set({ loading: false })
       }
@@ -137,8 +137,8 @@ export const useUserStore = create<UserState>((set, get) => {
         if (error) throw error
         set({ activities: data || [] })
         return { success: true, data }
-      } catch (err: any) {
-        return { success: false, error: err.message }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
       } finally {
         set({ loading: false })
       }
@@ -162,8 +162,8 @@ export const useUserStore = create<UserState>((set, get) => {
         }))
         
         return { success: true }
-      } catch (err: any) {
-        return { success: false, error: err.message }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
       } finally {
         set({ loading: false })
       }
@@ -195,8 +195,8 @@ export const useUserStore = create<UserState>((set, get) => {
         })
 
         return { success: true }
-      } catch (err: any) {
-        return { success: false, error: err.message }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
       } finally {
         set({ loading: false })
       }
@@ -219,8 +219,8 @@ export const useUserStore = create<UserState>((set, get) => {
 
         await get().fetchSessions()
         return { success: true }
-      } catch (err: any) {
-        return { success: false, error: err.message }
+      } catch (err) {
+        return { success: false, error: (err as Error).message }
       } finally {
         set({ loading: false })
       }

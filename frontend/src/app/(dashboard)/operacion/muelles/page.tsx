@@ -316,7 +316,6 @@ export default function MuellesPage() {
     ? appointments.find((a) => a.id === confirmModal.appointmentId)
     : null
 
-  const smartModalAppt = smartCollisionModal ? appointments.find((a) => a.id === smartCollisionModal.appointmentId) : null;
   const smartModalSuggestedDock = smartCollisionModal?.suggestedDockId ? docks.find(d => d.id === smartCollisionModal.suggestedDockId) : null;
 
   return (

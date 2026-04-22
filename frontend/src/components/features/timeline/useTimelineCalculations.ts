@@ -1,4 +1,3 @@
-import { useMemo } from "react"
 import { parseTime } from "@/lib/services/scheduling"
 import { TimelineAppointmentRow } from "@/lib/services/appointments"
 
