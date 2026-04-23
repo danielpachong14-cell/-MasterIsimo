@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useUIStore } from "@/store/uiStore"
-import { TimelineAppointmentRow } from "@/lib/services/appointments"
 import { formatTimeFromMinutes, parseTime } from "@/lib/services/scheduling"
 import { updateAppointmentStatusAction } from "@/app/actions/appointments"
 import type { AppointmentStatus } from "@/types"

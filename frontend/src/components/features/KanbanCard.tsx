@@ -77,16 +77,16 @@ export function KanbanCard({ appointment, onClick }: KanbanCardProps) {
               <div className="bg-surface-container px-2 py-1 rounded text-[10px] font-black tracking-tighter text-on-surface-variant uppercase inline-block">
                 {appointment.license_plate?.toUpperCase()}
               </div>
-              {(appointment as any).environment_name && (
+              {appointment.environment_name && (
                 <div 
                   className="px-1.5 py-0.5 rounded text-[8px] font-black tracking-tighter uppercase"
                   style={{ 
-                    backgroundColor: (appointment as any).environment_color ? `${(appointment as any).environment_color}15` : '#f1f5f9',
-                    color: (appointment as any).environment_color || '#64748b',
-                    border: `1px solid ${(appointment as any).environment_color}30` || '1px solid #e2e8f0'
+                    backgroundColor: appointment.environment_color ? `${appointment.environment_color}15` : '#f1f5f9',
+                    color: appointment.environment_color || '#64748b',
+                    border: `1px solid ${appointment.environment_color}30` || '1px solid #e2e8f0'
                   }}
                 >
-                  {(appointment as any).environment_name}
+                  {appointment.environment_name}
                 </div>
               )}
             </div>
