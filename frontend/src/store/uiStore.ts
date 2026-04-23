@@ -32,6 +32,15 @@ interface UIState {
   setTimelineEditModal: (appointment: Appointment | TimelineAppointmentRow | null) => void;
   setTimelineExtendModal: (appointmentId: string | null) => void;
   clearTimelineModals: () => void;
+
+  // Timeline Appointment Drawer (v4.2)
+  // Uses TimelineAppointmentRow (not full Appointment) to preserve Zero Over-fetching.
+  // All data needed for the drawer is already available in the Gantt data payload.
+  timelineDrawerAppointment: TimelineAppointmentRow | null;
+  isTimelineDrawerOpen: boolean;
+  openTimelineDrawer: (appointment: TimelineAppointmentRow) => void;
+  closeTimelineDrawer: () => void;
+  updateDrawerAppointment: (updated: Partial<TimelineAppointmentRow>) => void;
 }
 
 /**
@@ -104,7 +113,29 @@ export const useUIStore = create<UIState>()(
         timelineConfirmModal: null,
         timelineEditModal: null,
         timelineExtendModal: null
-      })
+      }),
+
+      // Timeline Drawer (v4.2)
+      timelineDrawerAppointment: null,
+      isTimelineDrawerOpen: false,
+
+      openTimelineDrawer: (appointment) => set({
+        timelineDrawerAppointment: appointment,
+        isTimelineDrawerOpen: true
+      }),
+
+      closeTimelineDrawer: () => set({
+        isTimelineDrawerOpen: false,
+        // Delay clearing the appointment so close animation completes smoothly
+        timelineDrawerAppointment: null
+      }),
+
+      // Optimistic local update: reflects status change before Realtime propagates
+      updateDrawerAppointment: (updated) => set(state => ({
+        timelineDrawerAppointment: state.timelineDrawerAppointment
+          ? { ...state.timelineDrawerAppointment, ...updated }
+          : null
+      })),
     }),
     {
       name: 'sidebar-ui-storage', 

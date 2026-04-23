@@ -5,10 +5,12 @@ import { CediSettings } from "@/types"
 import { TimelineAppointmentRow, TimelineDockRow } from "@/lib/services/appointments"
 import { parseTime } from "@/lib/services/scheduling"
 import { cn } from "@/lib/utils"
+import { useUIStore } from "@/store/uiStore"
 
 // Sub-components & Hook
 import { useTimelineCalculations } from "./timeline/useTimelineCalculations"
 import { AppointmentBlock } from "./timeline/AppointmentBlock"
+import { AppointmentDrawer } from "./timeline/AppointmentDrawer"
 import { DockRow } from "./timeline/DockRow"
 
 interface DockTimelineProps {
@@ -41,6 +43,7 @@ export function DockTimeline({
   onDropFromWaitlist 
 }: DockTimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const { openTimelineDrawer } = useUIStore()
   
   // 🔍 UI State
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(30)
@@ -349,6 +352,7 @@ export function DockTimeline({
                     onMouseDown={(e) => handleMouseDown(e, appointment)}
                     onResizeDown={(e) => handleResizeDown(e, appointment)}
                     onEdit={() => onAppointmentEdit(appointment)}
+                    onDrawerOpen={() => openTimelineDrawer(appointment)}
                   />
                 ))}
             </DockRow>
@@ -366,6 +370,9 @@ export function DockTimeline({
           )}
         </div>
       </div>
+
+      {/* ── Appointment Drawer (v4.2) — mounted here to share Gantt context ── */}
+      <AppointmentDrawer />
     </div>
   )
 }

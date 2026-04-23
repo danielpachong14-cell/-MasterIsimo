@@ -384,3 +384,59 @@ export async function assignFromWaitlistAction({
   return result
 }
 
+/**
+ * Avanza el estado operativo de una cita desde el Drawer.
+ * Valida progresión lineal, aplica trazabilidad de timestamps y registra auditoría.
+ * Reutiliza buildStatusTransitionUpdates para garantizar consistencia con el resto del sistema.
+ */
+export async function updateAppointmentStatusAction({
+  appointmentId,
+  newStatus
+}: {
+  appointmentId: string
+  newStatus: AppointmentStatus
+}) {
+  const supabase = await createClient()
+
+  const { data: appt, error: apptError } = await supabase
+    .from('appointments')
+    .select('id, status, arrival_time, docking_time, start_unloading_time, end_unloading_time')
+    .eq('id', appointmentId)
+    .single()
+
+  if (apptError || !appt) {
+    return { success: false, error: 'Cita no encontrada.' }
+  }
+
+  // Guard: previene regresión de estados (forward-only transitions)
+  const STATUS_ORDER: AppointmentStatus[] = [
+    'EN_ESPERA', 'PENDIENTE', 'EN_PORTERIA', 'EN_MUELLE', 'DESCARGANDO', 'FINALIZADO', 'CANCELADO'
+  ]
+  const currentIdx = STATUS_ORDER.indexOf(appt.status as AppointmentStatus)
+  const newIdx = STATUS_ORDER.indexOf(newStatus)
+
+  if (newIdx < currentIdx && newStatus !== 'CANCELADO') {
+    return { success: false, error: `No se puede retroceder de "${appt.status}" a "${newStatus}".` }
+  }
+
+  const updates = buildStatusTransitionUpdates(appt, newStatus)
+
+  const { error: updateError } = await supabase
+    .from('appointments')
+    .update(updates)
+    .eq('id', appointmentId)
+
+  if (updateError) {
+    console.error('[updateAppointmentStatusAction] Error:', updateError)
+    return { success: false, error: 'Error al actualizar el estado.' }
+  }
+
+  await supabase.from('appointment_audit_log').insert({
+    appointment_id: appointmentId,
+    action: 'STATUS_CHANGE',
+    changed_fields: { status: { old: appt.status, new: newStatus } },
+    notes: `Cambio de estado manual desde Drawer de Muelles: ${appt.status} → ${newStatus}`
+  })
+
+  return { success: true }
+}
