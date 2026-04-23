@@ -36,7 +36,7 @@ const STATUS_CONFIG: Record<string, StatusConfig> = {
     bgColor: 'bg-secondary-fixed/50',
     textColor: 'text-on-secondary-fixed-variant',
     nextStatus: 'EN_MUELLE',
-    nextLabel: 'Asignar a Muelle',
+    nextLabel: 'Ingresar a Muelle',
     nextIcon: 'dock'
   },
   EN_MUELLE: {
@@ -148,6 +148,12 @@ export function AppointmentDrawer() {
   const fmt = (time: string | null) =>
     time ? formatTimeFromMinutes(parseTime(time)) : null
 
+  const toTitleCase = (str: string) => 
+    str.toLowerCase()
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
   return (
     <>
       {/* ── Backdrop ────────────────────────────────────────── */}
@@ -176,7 +182,7 @@ export function AppointmentDrawer() {
           <div className="flex items-center gap-3">
             <div className="flex flex-col">
               <p className="text-xs font-black uppercase tracking-widest text-on-surface/50">Cita</p>
-              <p className="text-xl font-black tracking-tight text-on-surface leading-tight">
+              <p className="text-xl font-black tracking-tight text-on-surface leading-tight uppercase">
                 {appt.license_plate}
               </p>
             </div>
@@ -212,12 +218,28 @@ export function AppointmentDrawer() {
                   <p className="text-sm font-black text-on-surface leading-tight">{appt.company_name}</p>
                 </div>
               </div>
+              {appt.environment_name && (
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="material-symbols-outlined text-[16px]" 
+                    style={{ color: appt.environment_color || undefined }}
+                  >
+                    inventory_2
+                  </span>
+                  <div>
+                    <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider">Tipo de Carga</p>
+                    <p className="text-[11px] font-black leading-tight" style={{ color: appt.environment_color || undefined }}>
+                      {appt.environment_name}
+                    </p>
+                  </div>
+                </div>
+              )}
               {appt.driver_name && (
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[16px] text-primary/60">person</span>
                   <div>
                     <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-wider">Conductor</p>
-                    <p className="text-[11px] font-bold text-on-surface">{appt.driver_name}</p>
+                    <p className="text-[11px] font-bold text-on-surface">{toTitleCase(appt.driver_name)}</p>
                   </div>
                 </div>
               )}

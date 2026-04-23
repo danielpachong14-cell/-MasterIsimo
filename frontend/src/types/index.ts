@@ -28,6 +28,8 @@ export interface Appointment {
   is_walk_in?: boolean | null;
   is_express?: boolean | null;
   environment_id?: number | null;
+  environment_name?: string | null;
+  environment_color?: string | null;
 
   is_forced_assignment?: boolean | null;
   force_reason?: string | null;

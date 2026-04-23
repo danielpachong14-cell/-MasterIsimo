@@ -307,12 +307,26 @@ export function DockTimeline({
             <div className="flex-shrink-0 flex items-center px-4 font-bold text-[10px] uppercase tracking-widest text-primary/40 border-r border-surface-container" style={{ width: DOCK_LABEL_WIDTH }}>
               Muelle
             </div>
-            <div className="flex relative">
+            <div className="flex relative overflow-visible flex-1">
+              {/* Vertical Lines in Header */}
+              {Array.from({ length: totalSlots }).map((_, i) => (
+                <div 
+                  key={`line-${i}`}
+                  className="absolute top-0 bottom-0 border-r border-surface-container/30"
+                  style={{ left: i * cellWidth, width: cellWidth }}
+                />
+              ))}
+
+              {/* Time Labels */}
               {timeHeaders.map((time, i) => (
                 <div 
-                  key={i} 
-                  className="flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-on-surface-variant/60 border-r border-surface-container/50"
-                  style={{ width: cellWidth }}
+                  key={`time-${i}`} 
+                  className="absolute top-0 bottom-0 flex items-center justify-center text-[10px] font-bold text-on-surface-variant/80 z-10"
+                  style={{ 
+                    left: i * cellWidth,
+                    width: cellWidth,
+                    transform: 'translateX(-50%)'
+                  }}
                 >
                   {time}
                 </div>

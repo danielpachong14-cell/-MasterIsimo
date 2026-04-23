@@ -28,6 +28,9 @@ export interface KanbanAppointmentRow {
     po_number: string
     box_count: number
   }[]
+  environment_id: number | null
+  environment_name?: string | null
+  environment_color?: string | null
 }
 
 /**
@@ -56,6 +59,9 @@ export interface TimelineAppointmentRow {
     po_number: string
     box_count: number
   }[]
+  environment_id: number | null
+  environment_name?: string | null
+  environment_color?: string | null
 }
 
 /**
@@ -86,31 +92,41 @@ export interface DockSelectionRow {
  * Forma cruda de la respuesta de Supabase cuando se solicita una cita con join a docks.
  * Utiliza un genérico T para mantener el tipado fuerte de la proyección solicitada.
  */
-type RawAppointmentRow<T> = Omit<T, 'dock_name'> & {
+type RawAppointmentRow<T> = Omit<T, 'dock_name' | 'environment_name' | 'environment_color'> & {
   docks?: { name: string } | { name: string }[] | null
+  environments?: { name: string, display_name: string, color: string } | { name: string, display_name: string, color: string }[] | null
 }
 
 /**
- * Utilidad interna para aplanar la respuesta relacional de Supabase (docks.name -> dock_name).
- * Mantiene intacta la inferencia genérica del resto de campos de T.
+ * Utilidad interna para aplanar la respuesta relacional de Supabase.
+ * Mapea docks.name -> dock_name y environments.display_name -> environment_name.
  */
 function flattenAppointment<T>(data: RawAppointmentRow<T>): T {
   const rawDock = data.docks
+  const rawEnv = data.environments
+  
   let dockName: string | null = null
+  let envName: string | null = null
+  let envColor: string | null = null
 
   if (rawDock) {
-    dockName = Array.isArray(rawDock)
-      ? (rawDock[0]?.name ?? null)
-      : (rawDock.name ?? null)
+    dockName = Array.isArray(rawDock) ? (rawDock[0]?.name ?? null) : (rawDock.name ?? null)
   }
 
-  // Extraer docks de forma segura para omitirlo en el objeto resultante
+  if (rawEnv) {
+    const env = Array.isArray(rawEnv) ? rawEnv[0] : rawEnv
+    envName = env?.display_name ?? env?.name ?? null
+    envColor = env?.color ?? null
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { docks, ...rest } = data as Record<string, unknown>
+  const { docks, environments, ...rest } = data as Record<string, unknown>
 
   return {
     ...rest,
-    dock_name: dockName
+    dock_name: dockName,
+    environment_name: envName,
+    environment_color: envColor
   } as unknown as T
 }
 
@@ -134,7 +150,9 @@ const KANBAN_SELECT = `
   is_walk_in,
   is_express,
   notes,
+  environment_id,
   docks(name),
+  environments(name, display_name, color),
   appointment_purchase_orders(id, po_number, box_count)
 `.trim()
 
@@ -156,6 +174,8 @@ const TIMELINE_SELECT = `
   end_unloading_time,
   is_walk_in,
   notes,
+  environment_id,
+  environments(name, display_name, color),
   appointment_purchase_orders(id, po_number, box_count)
 `.trim()
 
@@ -196,7 +216,9 @@ const DETAILS_SELECT = `
   unloading_personnel,
   created_at,
   updated_at,
+  environment_id,
   docks(name),
+  environments(name, display_name, color),
   appointment_purchase_orders(id, po_number, box_count)
 `.trim()
 

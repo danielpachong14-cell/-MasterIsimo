@@ -344,6 +344,7 @@ export default function TrazabilidadPage() {
                     { key: 'id', label: 'ID / Estado' },
                     { key: 'empresa', label: 'Empresa & POs' },
                     { key: 'logistica', label: 'Logística' },
+                    { key: 'ambiente', label: 'Ambiente' },
                     { key: 'tiempos', label: 'Tiempos (Min)' },
                     { key: 'ubicacion', label: 'Ubicación' },
                   ].map(({ key, label }) => {
@@ -455,6 +456,22 @@ export default function TrazabilidadPage() {
                           <span className="text-[10px] font-bold text-primary">Llegada: {new Date(a.arrival_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {a.environment_name ? (
+                        <div 
+                          className="px-2 py-1 rounded text-[10px] font-black tracking-tighter uppercase w-fit"
+                          style={{ 
+                            backgroundColor: a.environment_color ? `${a.environment_color}15` : '#f1f5f9',
+                            color: a.environment_color || '#64748b',
+                            border: `1px solid ${a.environment_color}30` || '1px solid #e2e8f0'
+                          }}
+                        >
+                          {a.environment_name}
+                        </div>
+                      ) : (
+                        <span className="text-on-surface-variant/40 text-[10px] italic">Sin ambiente</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1.5 min-w-[140px]">

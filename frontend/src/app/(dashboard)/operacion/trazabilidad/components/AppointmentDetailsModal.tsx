@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { Appointment, AppointmentStatus } from "@/types"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/Button"
-import { cn, formatTime, capitalize } from "@/lib/utils"
+import { cn, formatTime, capitalize, toTitleCase } from "@/lib/utils"
 import { fetchAppointmentById, buildStatusTransitionUpdates, fetchActiveDocks, DockSelectionRow } from "@/lib/services/appointments"
 import { assignDockAction } from "@/app/actions/appointments"
 import { scheduleEngineAction } from "@/app/actions/scheduling"
@@ -57,6 +57,8 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
   const [rescheduleDate, setRescheduleDate] = useState<string>("")
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([])
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
+  const [environments, setEnvironments] = useState<{ id: number, name: string }[]>([])
+  const [selectedEnvironmentId, setSelectedEnvironmentId] = useState<number | null>(null)
 
   const supabase = createClient()
 
@@ -64,21 +66,35 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
     if (appointment) {
       setCurrentAppointment(appointment)
       setSelectedDockId(appointment.dock_id)
+      setSelectedEnvironmentId(appointment.environment_id ?? null)
     }
   }, [appointment])
 
   useEffect(() => {
-    async function loadDocks() {
-      if (!isOpen || !currentAppointment?.environment_id) return
+    async function loadEnvironments() {
+      if (!isOpen) return
       try {
-        const docks = await fetchActiveDocks(supabase, currentAppointment.environment_id)
+        const { data } = await supabase.from('environments').select('id, name').order('name')
+        if (data) setEnvironments(data)
+      } catch (err) {
+        console.error("Error loading environments:", err)
+      }
+    }
+    loadEnvironments()
+  }, [isOpen, supabase])
+
+  useEffect(() => {
+    async function loadDocks() {
+      if (!isOpen || !selectedEnvironmentId) return
+      try {
+        const docks = await fetchActiveDocks(supabase, selectedEnvironmentId)
         setAvailableDocks(docks)
       } catch (err) {
         console.error("Error loading docks:", err)
       }
     }
     loadDocks()
-  }, [isOpen, currentAppointment?.environment_id, supabase])
+  }, [isOpen, selectedEnvironmentId, supabase])
 
   useEffect(() => {
     if (!isOpen || !appointment?.id) return
@@ -149,7 +165,7 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
   }, [currentAppointment, rescheduleDate])
 
   useEffect(() => {
-    if (!isAdvancedMode || !rescheduleDate || !currentAppointment) return
+    if (!isAdvancedMode || !rescheduleDate || !currentAppointment || !selectedEnvironmentId) return
 
     async function loadSlots() {
       setIsLoadingSlots(true)
@@ -161,7 +177,7 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
 
         const result = await scheduleEngineAction({
           date: rescheduleDate,
-          environmentId: currentAppointment!.environment_id ?? null,
+          environmentId: selectedEnvironmentId,
           vehicleTypeId: currentAppointment!.vehicle_type_id ?? null,
           totalBoxes: calculatedTotalBoxes,
         })
@@ -173,7 +189,7 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
       }
     }
     loadSlots()
-  }, [isAdvancedMode, rescheduleDate, currentAppointment])
+  }, [isAdvancedMode, rescheduleDate, currentAppointment, selectedEnvironmentId])
 
   if (!isOpen || !currentAppointment) return null
 
@@ -336,7 +352,8 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
         dockId: selectedDockId,
         scheduledDate: isAdvancedMode ? rescheduleDate : undefined,
         scheduledTime: isAdvancedMode && selectedTime ? `${selectedTime}:00` : undefined,
-        forceReason: force ? forceReason : undefined
+        forceReason: force ? forceReason : undefined,
+        environmentId: isAdvancedMode && selectedEnvironmentId ? selectedEnvironmentId : undefined
       })
 
       if (result.success) {
@@ -409,6 +426,18 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
               <span className="bg-white/20 px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase">
                 {currentAppointment.status}
               </span>
+              {currentAppointment.environment_name && (
+                <span 
+                  className="px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border backdrop-blur-md"
+                  style={{ 
+                    backgroundColor: currentAppointment.environment_color ? `${currentAppointment.environment_color}20` : 'rgba(255,255,255,0.1)',
+                    borderColor: currentAppointment.environment_color || 'rgba(255,255,255,0.2)',
+                    color: '#fff'
+                  }}
+                >
+                  {currentAppointment.environment_name}
+                </span>
+              )}
               <span className={cn(
                 "px-3 py-1.5 rounded-full text-[10px] font-black tracking-widest uppercase border backdrop-blur-md",
                 getPunctualityStyle(currentAppointment.punctuality_status)
@@ -576,7 +605,7 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
                 <div className="grid grid-cols-2 gap-y-4 gap-x-6">
                   <div>
                     <p className="text-[10px] font-bold text-on-surface-variant uppercase">Chofer</p>
-                    <p className="font-bold text-sm text-on-surface capitalize">{capitalize(currentAppointment.driver_name)}</p>
+                    <p className="font-bold text-sm text-on-surface capitalize">{toTitleCase(currentAppointment.driver_name)}</p>
                     <p className="text-xs text-on-surface-variant">{currentAppointment.driver_phone}</p>
                   </div>
                   <div>
@@ -629,18 +658,38 @@ export function AppointmentDetailsModal({ onSuccess }: AppointmentDetailsModalPr
                                 ))}
                               </select>
                             ) : (
-                              <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-primary text-xl">event_upcoming</span>
-                                <input
-                                  type="date"
-                                  value={rescheduleDate}
-                                  onChange={(e) => setRescheduleDate(e.target.value)}
-                                  className="text-sm font-bold h-10 px-3 rounded-xl border border-surface-container bg-white focus:ring-2 focus:ring-primary/20 outline-none"
-                                />
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-primary text-xl">event_upcoming</span>
+                                  <input
+                                    type="date"
+                                    value={rescheduleDate}
+                                    onChange={(e) => setRescheduleDate(e.target.value)}
+                                    className="text-sm font-bold h-10 px-3 rounded-xl border border-surface-container bg-white focus:ring-2 focus:ring-primary/20 outline-none"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-primary text-xl">ac_unit</span>
+                                  <select
+                                    title="Seleccionar Tipo de Carga"
+                                    value={selectedEnvironmentId || ""}
+                                    onChange={(e) => {
+                                      setSelectedEnvironmentId(e.target.value ? parseInt(e.target.value) : null)
+                                      setSelectedTime(null) // Reset time when environment changes as slots will change
+                                      setSelectedDockId(null)
+                                    }}
+                                    className="text-sm font-bold h-10 px-3 rounded-xl border border-surface-container bg-white focus:ring-2 focus:ring-primary/20 outline-none"
+                                  >
+                                    <option value="" disabled>Seleccione Ambiente</option>
+                                    {environments.map(env => (
+                                      <option key={env.id} value={env.id}>{env.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
                               </div>
                             )}
 
-                            {(selectedDockId !== currentAppointment.dock_id || (isAdvancedMode && selectedTime)) && (
+                            {(selectedDockId !== currentAppointment.dock_id || (isAdvancedMode && selectedTime) || (isAdvancedMode && selectedEnvironmentId !== currentAppointment.environment_id && selectedTime)) && (
                               <button
                                 onClick={() => handleAssignDock(false)}
                                 disabled={isAssigningDock}

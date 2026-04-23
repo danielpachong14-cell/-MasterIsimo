@@ -31,19 +31,21 @@ interface AppointmentBlockProps {
  */
 function getInfoText(appt: TimelineAppointmentRow): string {
   const company = appt.company_name || ''
+  const env = appt.environment_name || ''
   const poNumbers = appt.appointment_purchase_orders
     ?.map(po => `OC: ${po.po_number}`)
     .join(' · ') || ''
   const boxes = appt.appointment_purchase_orders
     ?.reduce((s, po) => s + (po.box_count || 0), 0) || appt.box_count || 0
-  return [company, poNumbers, `${boxes} cj`].filter(Boolean).join(' | ')
+  return [company, env, poNumbers, `${boxes} cj`].filter(Boolean).join(' | ')
 }
 
 /** Returns a minimal version of the info string for very narrow blocks. */
 function getMicroText(appt: TimelineAppointmentRow): string {
+  const envPrefix = appt.environment_name ? `[${appt.environment_name.charAt(0).toUpperCase()}] ` : ''
   const boxes = appt.appointment_purchase_orders
     ?.reduce((s, po) => s + (po.box_count || 0), 0) || appt.box_count || 0
-  return `${appt.company_name || ''} · ${boxes}cj`
+  return `${envPrefix}${appt.company_name || ''} · ${boxes}cj`
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -148,7 +150,7 @@ export function AppointmentBlock({
           onClick={handleClick}
           onDoubleClick={(e) => { e.stopPropagation(); onEdit() }}
           title={isHistory
-            ? `Placa: ${appointment.license_plate} | Empresa: ${appointment.company_name} | Inicio: ${appointment.docking_time ? formatTimeFromMinutes(parseTime(appointment.docking_time)) : '-'} | Fin: ${appointment.end_unloading_time ? formatTimeFromMinutes(parseTime(appointment.end_unloading_time)) : '-'}`
+            ? `Placa: ${appointment.license_plate?.toUpperCase()} | Ambiente: ${appointment.environment_name} | Empresa: ${appointment.company_name} | Inicio: ${appointment.docking_time ? formatTimeFromMinutes(parseTime(appointment.docking_time)) : '-'} | Fin: ${appointment.end_unloading_time ? formatTimeFromMinutes(parseTime(appointment.end_unloading_time)) : '-'}`
             : undefined
           }
         >
@@ -167,8 +169,20 @@ export function AppointmentBlock({
             </p>
           )}
 
-          {/* ── Active / Pending block content ──────────── */}
-          {!isHistory && (
+          {/* ── Rail-style label (PENDIENTE / EN_PORTERIA) ─── */}
+          {isPending && currentWidth >= MIN_MICRO_WIDTH && (
+            <div className="flex flex-row items-center justify-start w-full overflow-hidden">
+              <p className="text-[10px] font-black whitespace-nowrap truncate leading-none">
+                <span className="uppercase mr-1.5">{appointment.license_plate}</span>
+                <span className="font-medium opacity-70">
+                  {getInfoText(appointment)}
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* ── Active operation block content (EN_MUELLE / DESCARGANDO) ── */}
+          {isOperation && (
             <>
               <div className="flex-1 flex flex-col min-w-0 pr-6">
                 <div className="flex items-center justify-between gap-1 min-w-0">
@@ -179,7 +193,7 @@ export function AppointmentBlock({
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-tertiary-container"></span>
                     </span>
                   )}
-                  {appointment.is_walk_in && !appointment.status.includes('DESCARGANDO') && (
+                  {appointment.is_walk_in && (
                     <span className="material-symbols-outlined text-[11px] text-amber-500 shrink-0">bolt</span>
                   )}
                 </div>

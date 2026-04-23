@@ -42,6 +42,12 @@ export function KanbanCard({ appointment, onClick }: KanbanCardProps) {
     )
   }
 
+  const toTitleCase = (str: string) => 
+    str.toLowerCase()
+      .split(/\s+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
   return (
     <div
       ref={setNodeRef}
@@ -67,8 +73,22 @@ export function KanbanCard({ appointment, onClick }: KanbanCardProps) {
 
         <div className="flex justify-between items-start pl-2">
           <div className="space-y-1">
-            <div className="bg-surface-container px-2 py-1 rounded text-[10px] font-black tracking-tighter text-on-surface-variant uppercase inline-block">
-              {appointment.license_plate?.toUpperCase()}
+            <div className="flex items-center gap-2">
+              <div className="bg-surface-container px-2 py-1 rounded text-[10px] font-black tracking-tighter text-on-surface-variant uppercase inline-block">
+                {appointment.license_plate?.toUpperCase()}
+              </div>
+              {(appointment as any).environment_name && (
+                <div 
+                  className="px-1.5 py-0.5 rounded text-[8px] font-black tracking-tighter uppercase"
+                  style={{ 
+                    backgroundColor: (appointment as any).environment_color ? `${(appointment as any).environment_color}15` : '#f1f5f9',
+                    color: (appointment as any).environment_color || '#64748b',
+                    border: `1px solid ${(appointment as any).environment_color}30` || '1px solid #e2e8f0'
+                  }}
+                >
+                  {(appointment as any).environment_name}
+                </div>
+              )}
             </div>
             <p className="font-bold text-on-surface line-clamp-1 leading-tight">
               {appointment.company_name}
@@ -105,7 +125,7 @@ export function KanbanCard({ appointment, onClick }: KanbanCardProps) {
 
         <div className="flex items-center justify-between pt-2 border-t border-surface-container pl-2">
           <p className="text-[10px] font-bold text-on-surface-variant/60 capitalize truncate max-w-[100px]" title={appointment.driver_name}>
-            {appointment.driver_name}
+            {appointment.driver_name ? toTitleCase(appointment.driver_name) : 'Sin Conductor'}
           </p>
           {appointment.dock_id ? (
             <div className="flex items-center gap-1 text-tertiary font-bold text-[10px]">

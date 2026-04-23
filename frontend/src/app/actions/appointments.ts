@@ -15,7 +15,8 @@ export async function assignDockAction({
   scheduledDate,
   scheduledTime,
   newStatus,
-  forceReason
+  forceReason,
+  environmentId
 }: {
   appointmentId: string;
   dockId: number;
@@ -23,6 +24,7 @@ export async function assignDockAction({
   scheduledTime?: string;
   newStatus?: AppointmentStatus;
   forceReason?: string;
+  environmentId?: number;
 }) {
   const supabase = await createClient()
 
@@ -50,6 +52,9 @@ export async function assignDockAction({
     return { success: false, error: "Cita no encontrada." }
   }
 
+  // Target Environment (del argumento, o el actual de la cita)
+  const targetEnvironmentId = environmentId !== undefined ? environmentId : appointment.environment_id;
+
   // 2. Cálculo Dinámico de Duración (Requisito del Veredicto)
   const targetDate = scheduledDate || appointment.scheduled_date
   // Sanitizar targetTime: Si viene de Postgres TIMETZ puede traer +00, tomamos solo HH:mm:ss
@@ -65,7 +70,7 @@ export async function assignDockAction({
 
   const engineResult = await runSchedulingEngine(supabase, {
     date: targetDate,
-    environmentId: appointment.environment_id,
+    environmentId: targetEnvironmentId,
     vehicleTypeId: appointment.vehicle_type_id,
     totalBoxes: totalBoxes
   })
@@ -85,8 +90,8 @@ export async function assignDockAction({
     return { success: false, error: "Muelle no encontrado o inactivo." }
   }
 
-  if (dock.environment_id && appointment.environment_id && dock.environment_id !== appointment.environment_id) {
-    return { success: false, error: `Muelle incompatible con el ambiente (${appointment.environment_id}).` }
+  if (dock.environment_id && targetEnvironmentId && dock.environment_id !== targetEnvironmentId) {
+    return { success: false, error: `Muelle incompatible con el ambiente seleccionado.` }
   }
 
   if (dock.supported_vehicle_types && dock.supported_vehicle_types.length > 0 && appointment.vehicle_type_id) {
@@ -120,6 +125,10 @@ export async function assignDockAction({
     scheduled_time: targetTime,
     scheduled_end_time: endTimeStr,
     estimated_duration_minutes: duration
+  }
+
+  if (environmentId !== undefined) {
+    updates.environment_id = environmentId;
   }
 
   if (forceReason) {
