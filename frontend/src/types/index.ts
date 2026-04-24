@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'PENDIENTE' | 'EN_PORTERIA' | 'EN_MUELLE' | 'DESCARGANDO' | 'FINALIZADO' | 'CANCELADO' | 'EN_ESPERA';
+export type AppointmentStatus = 'PENDIENTE' | 'EN_PORTERIA' | 'EN_MUELLE' | 'DESCARGANDO' | 'FINALIZADO' | 'CANCELADO' | 'EN_ESPERA' | 'INCUMPLIDA';
 
 export interface AppointmentPurchaseOrder {
   id: string;
@@ -220,6 +220,36 @@ export interface UserActivityLog {
 }
 
 // Removed duplicated UserSession - now unified above
+
+// ─── EOD (End-of-Day) Summary ────────────────────────────────
+
+/**
+ * Shape del JSON retornado por la función SQL get_daily_summary(p_date).
+ * Tipado estricto para la Server Action fetchDailySummaryAction.
+ */
+export interface DailySummary {
+  date: string
+  // Conteos por estado
+  total: number
+  completed: number
+  no_show: number
+  cancelled: number
+  pending: number
+  waiting: number
+  in_gate: number
+  at_dock: number
+  unloading: number
+  // Balance de carga (cajas)
+  boxes_projected: number
+  boxes_received: number
+  boxes_missing: number
+  // Nivel de servicio (0–100)
+  service_level_pct: number
+  // Tiempos promedio en minutos (null si no hay datos suficientes)
+  avg_wait_patio_min: number | null
+  avg_wait_dock_min: number | null
+  avg_unloading_min: number | null
+}
 
 // ─── Service-Layer Projections ───────────────────────────────
 // Para queries granulares (Kanban, Timeline de Muelles, etc.), ver:

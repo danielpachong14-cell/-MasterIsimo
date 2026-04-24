@@ -13,6 +13,7 @@ import { EditAppointmentModal } from "./components/EditAppointmentModal"
 import { DeleteAppointmentModal } from "./components/DeleteAppointmentModal"
 import { AppointmentDetailsModal } from "./components/AppointmentDetailsModal"
 import { ScheduleSupplierModal } from "@/components/ui/ScheduleSupplierModal"
+import { EODDrawer } from "@/components/features/EODDrawer"
 import { useUIStore } from "@/store/uiStore"
 import { buildStatusTransitionUpdates } from "@/lib/services/appointments"
 import { AppointmentStatus } from "@/types"
@@ -23,7 +24,9 @@ const STATUS_RANKS: Record<string, number> = {
   'EN_MUELLE': 2,
   'DESCARGANDO': 3,
   'FINALIZADO': 4,
-  'CANCELADO': 99
+  'CANCELADO': 99,
+  'EN_ESPERA': 0,   // Mismo nivel que PENDIENTE (slot sin asignar)
+  'INCUMPLIDA': 98, // Estado terminal lateral — no avanza operacionalmente
 };
 
 export default function TrazabilidadPage() {
@@ -52,7 +55,7 @@ export default function TrazabilidadPage() {
   const [deleteAppt, setDeleteAppt] = useState<Appointment | null>(null)
 
   // Zustand Modal Control
-  const { openAppointmentDetails } = useUIStore()
+  const { openAppointmentDetails, openEODDrawer } = useUIStore()
 
   // Frontend Multi-Column Sequential Sorting
   type SortColumn = 'id' | 'empresa' | 'logistica' | 'tiempos' | 'ubicacion';
@@ -248,12 +251,14 @@ export default function TrazabilidadPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'PENDIENTE': return 'bg-surface-container-high text-on-surface'
+      case 'PENDIENTE':   return 'bg-surface-container-high text-on-surface'
       case 'EN_PORTERIA': return 'bg-cyan-100 text-cyan-800 border-cyan-200'
-      case 'EN_MUELLE': return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'EN_MUELLE':   return 'bg-blue-100 text-blue-800 border-blue-200'
       case 'DESCARGANDO': return 'bg-purple-100 text-purple-800 border-purple-200'
-      case 'FINALIZADO': return 'bg-green-100 text-green-800 border-green-200'
-      case 'CANCELADO': return 'bg-red-100 text-red-800 border-red-200'
+      case 'FINALIZADO':  return 'bg-green-100 text-green-800 border-green-200'
+      case 'CANCELADO':   return 'bg-red-100 text-red-800 border-red-200'
+      case 'EN_ESPERA':   return 'bg-amber-100 text-amber-800 border-amber-200'
+      case 'INCUMPLIDA':  return 'bg-orange-100 text-orange-800 border-orange-200'
       default: return 'bg-gray-100'
     }
   }
@@ -263,32 +268,63 @@ export default function TrazabilidadPage() {
       
       {/* HEADER & DATAGRID CONTAINER */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between mb-6 shrink-0">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-black font-headline tracking-tighter text-on-surface">DataGrid Operativo</h1>
-            <p className="text-sm text-on-surface-variant font-medium">Búsqueda avanzada y gestión de citas</p>
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-y-6 gap-x-8 mb-10 shrink-0">
+          <div className="space-y-1.5">
+            <h1 className="text-3xl xl:text-4xl font-black tracking-tighter text-on-surface leading-none">DataGrid Operativo</h1>
+            <p className="text-sm text-on-surface-variant font-medium">Gestión avanzada de citas y monitoreo de flujo en CEDI</p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex divide-x divide-surface-container bg-surface-container-low rounded-xl px-4 py-2 border border-surface-container-high/50 shadow-sm">
-              <div className="px-4 text-center">
-                <p className="text-xs text-on-surface-variant uppercase tracking-widest font-bold">Total Hoy</p>
-                <p className="text-xl font-black text-on-surface">{stats.total}</p>
+          <div className="flex flex-wrap items-center justify-end gap-4 xl:gap-6 ml-auto w-full xl:w-auto">
+            {/* Minimalist Stats Card - Responsive units */}
+            <div className="flex items-center gap-4 xl:gap-6 bg-surface-container-lowest border border-surface-container rounded-2xl px-4 xl:px-6 py-2.5 xl:py-3 shadow-sm transition-all hover:shadow-md group">
+              <div className="text-center min-w-[60px] xl:min-w-[70px]">
+                <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60 group-hover:text-on-surface-variant transition-colors">Total Citas</p>
+                <div className="flex items-baseline justify-center gap-1 mt-0.5">
+                  <p className="text-2xl xl:text-3xl font-black text-on-surface tracking-tighter">{stats.total}</p>
+                  <span className="text-[10px] font-bold text-on-surface-variant/40">Hoy</span>
+                </div>
               </div>
-              <div className="px-4 text-center">
-                <p className="text-xs text-primary/60 uppercase tracking-widest font-bold">Walk-Ins</p>
-                <p className="text-xl font-black text-amber-500">{stats.walkins}</p>
+              <div className="w-px h-8 xl:h-10 bg-surface-container" />
+              <div className="text-center min-w-[60px] xl:min-w-[70px]">
+                <p className="text-[10px] font-black uppercase tracking-widest text-amber-600/70 group-hover:text-amber-600 transition-colors">Walk-Ins</p>
+                <div className="flex items-baseline justify-center gap-1 mt-0.5">
+                  <p className="text-2xl xl:text-3xl font-black text-amber-500 tracking-tighter">{stats.walkins}</p>
+                  <span className="material-symbols-outlined text-[14px] text-amber-400">bolt</span>
+                </div>
               </div>
             </div>
 
-            <Button variant="secondary" className="gap-2 shrink-0 border-surface-container-high bg-white hover:bg-surface-container-lowest" onClick={() => setIsScheduleOpen(true)}>
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
-              Nueva Cita (Auto)
-            </Button>
-            <Button className="gap-2 shrink-0 bg-amber-500 hover:bg-amber-600 border-amber-500 hover:border-amber-600 text-white shadow-md shadow-amber-500/20" onClick={() => setIsWalkInOpen(true)}>
-              <span className="material-symbols-outlined text-[18px]">bolt</span>
-              Ingreso Express
-            </Button>
+            {/* Actions Grouped - Using flex-wrap for internal resilience */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Button 
+                variant="secondary" 
+                className="h-11 px-4 xl:px-5 gap-2.5 border-surface-container-high bg-white hover:bg-surface-container-lowest transition-all hover:translate-y-[-1px] active:translate-y-0" 
+                onClick={() => setIsScheduleOpen(true)}
+              >
+                <span className="material-symbols-outlined text-[20px] text-on-surface-variant">calendar_add_on</span>
+                <span className="font-bold text-sm">Nueva Cita</span>
+              </Button>
+
+              <Button 
+                className="h-11 px-5 xl:px-6 gap-2.5 bg-amber-500 hover:bg-amber-600 border-amber-500 hover:border-amber-600 text-white shadow-lg shadow-amber-500/20 transition-all hover:translate-y-[-1px] active:translate-y-0" 
+                onClick={() => setIsWalkInOpen(true)}
+              >
+                <span className="material-symbols-outlined text-[20px]">bolt</span>
+                <span className="font-black text-sm">Ingreso Express</span>
+              </Button>
+
+              {/* Vertical divider only visible in wide screens to separate EOD */}
+              <div className="w-px h-6 bg-surface-container mx-1 hidden sm:block" />
+
+              <Button
+                variant="secondary"
+                className="h-11 px-4 xl:px-5 gap-2.5 border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 transition-all hover:translate-y-[-1px] active:translate-y-0 hover:shadow-md hover:shadow-indigo-500/10 group/eod"
+                onClick={() => openEODDrawer(filters.dateFrom || new Date().toISOString().split('T')[0])}
+              >
+                <span className="material-symbols-outlined text-[20px] text-indigo-500 group-hover/eod:rotate-12 transition-transform">lock_clock</span>
+                <span className="font-bold text-sm">Finalizar Recepción</span>
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -326,6 +362,8 @@ export default function TrazabilidadPage() {
                 <option value="DESCARGANDO">Descargando</option>
                 <option value="FINALIZADO">Finalizado</option>
                 <option value="CANCELADO">Cancelado</option>
+                <option value="EN_ESPERA">En Espera</option>
+                <option value="INCUMPLIDA">Incumplida</option>
               </select>
             </div>
             <div className="flex items-center gap-2 shrink-0 bg-white rounded-lg p-1 border-2 border-surface-container">
@@ -534,7 +572,7 @@ export default function TrazabilidadPage() {
                                 (STATUS_RANKS[a.status] >= 4 && STATUS_RANKS[a.status] !== 99) ? "opacity-50 cursor-not-allowed pointer-events-none" : "hover:border-primary focus:border-primary text-on-surface-variant"
                               )}
                               value={a.status}
-                              disabled={STATUS_RANKS[a.status] >= 4}
+                              disabled={STATUS_RANKS[a.status] >= 4 && a.status !== 'EN_ESPERA'}
                               onChange={(e) => handleUpdateStatus(a, e.target.value)}
                             >
                               <option value="PENDIENTE" disabled={STATUS_RANKS[a.status] > 0}>PENDIENTE</option>
@@ -636,6 +674,8 @@ export default function TrazabilidadPage() {
         isOpen={isScheduleOpen} 
         onClose={() => setIsScheduleOpen(false)}
       />
+
+      <EODDrawer onSuccess={fetchAppointments} />
 
     </div>
   )

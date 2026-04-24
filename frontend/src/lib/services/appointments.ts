@@ -290,6 +290,7 @@ export async function fetchTimelineAppointments(
     .select(TIMELINE_SELECT)
     .eq("scheduled_date", date)
     .neq("status", "CANCELADO")
+    .neq("status", "INCUMPLIDA")
     .order("scheduled_time")
     .returns<TimelineAppointmentRow[]>()
 

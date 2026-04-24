@@ -41,6 +41,18 @@ interface UIState {
   openTimelineDrawer: (appointment: TimelineAppointmentRow) => void;
   closeTimelineDrawer: () => void;
   updateDrawerAppointment: (updated: Partial<TimelineAppointmentRow>) => void;
+
+  // EOD (End-of-Day) Closure Drawer (v4.1)
+  // Manages the operational day-close panel and bulk no-show selection.
+  // eodSelectedIds is NOT persisted to avoid stale IDs across sessions.
+  isEODDrawerOpen: boolean;
+  eodDate: string;
+  eodSelectedIds: Set<string>;
+  openEODDrawer: (date?: string) => void;
+  closeEODDrawer: () => void;
+  toggleEODSelection: (id: string) => void;
+  selectAllEOD: (ids: string[]) => void;
+  clearEODSelection: () => void;
 }
 
 /**
@@ -136,6 +148,32 @@ export const useUIStore = create<UIState>()(
           ? { ...state.timelineDrawerAppointment, ...updated }
           : null
       })),
+
+      // EOD Drawer (v4.1)
+      isEODDrawerOpen: false,
+      eodDate: new Date().toISOString().split('T')[0],
+      eodSelectedIds: new Set<string>(),
+
+      openEODDrawer: (date) => set({
+        isEODDrawerOpen: true,
+        eodDate: date ?? new Date().toISOString().split('T')[0],
+        eodSelectedIds: new Set<string>(), // Reset selection on each open
+      }),
+
+      closeEODDrawer: () => set({
+        isEODDrawerOpen: false,
+        eodSelectedIds: new Set<string>(),
+      }),
+
+      toggleEODSelection: (id) => set(state => {
+        const next = new Set(state.eodSelectedIds)
+        if (next.has(id)) { next.delete(id) } else { next.add(id) }
+        return { eodSelectedIds: next }
+      }),
+
+      selectAllEOD: (ids) => set({ eodSelectedIds: new Set(ids) }),
+
+      clearEODSelection: () => set({ eodSelectedIds: new Set<string>() }),
     }),
     {
       name: 'sidebar-ui-storage', 
@@ -146,4 +184,3 @@ export const useUIStore = create<UIState>()(
     }
   )
 );
-

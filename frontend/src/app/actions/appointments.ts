@@ -418,11 +418,20 @@ export async function updateAppointmentStatusAction({
   }
 
   // Guard: previene regresión de estados (forward-only transitions)
+  // INCUMPLIDA es un estado terminal lateral: sólo puede alcanzarse desde PENDIENTE o EN_ESPERA
+  // sin timestamps de operación (arribo físico). Esta transición la maneja markAppointmentsAsNoShowAction;
+  // desde el Drawer individual solo bloqueamos.
   const STATUS_ORDER: AppointmentStatus[] = [
-    'EN_ESPERA', 'PENDIENTE', 'EN_PORTERIA', 'EN_MUELLE', 'DESCARGANDO', 'FINALIZADO', 'CANCELADO'
+    'EN_ESPERA', 'PENDIENTE', 'EN_PORTERIA', 'EN_MUELLE', 'DESCARGANDO', 'FINALIZADO', 'CANCELADO', 'INCUMPLIDA'
   ]
   const currentIdx = STATUS_ORDER.indexOf(appt.status as AppointmentStatus)
   const newIdx = STATUS_ORDER.indexOf(newStatus)
+
+  // Permite CANCELADO desde cualquier estado pre-finalizado.
+  // Bloquea INCUMPLIDA desde el drawer individual (solo permitida via cierre masivo).
+  if (newStatus === 'INCUMPLIDA') {
+    return { success: false, error: 'INCUMPLIDA solo puede asignarse mediante el cierre masivo de jornada.' }
+  }
 
   if (newIdx < currentIdx && newStatus !== 'CANCELADO') {
     return { success: false, error: `No se puede retroceder de "${appt.status}" a "${newStatus}".` }
@@ -448,4 +457,114 @@ export async function updateAppointmentStatusAction({
   })
 
   return { success: true }
+}
+
+// ──────────────────────────────────────────────────────────────────
+// EOD (End-of-Day) Server Actions
+// ──────────────────────────────────────────────────────────────────
+
+/**
+ * Obtiene el resumen ejecutivo del día mediante la función SQL get_daily_summary.
+ * Un único viaje a BD calcula todos los KPIs operativos: conteos, carga de cajas,
+ * nivel de servicio y tiempos promedio por fase.
+ */
+export async function fetchDailySummaryAction(
+  date: string
+): Promise<{ success: true; data: import('@/types').DailySummary } | { success: false; error: string }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .rpc('get_daily_summary', { p_date: date })
+
+  if (error) {
+    console.error('[fetchDailySummaryAction] Error:', error)
+    return { success: false, error: 'No se pudo calcular el resumen del día.' }
+  }
+
+  return { success: true, data: data as import('@/types').DailySummary }
+}
+
+/**
+ * Cierre masivo de jornada: marca un lote de citas como INCUMPLIDA.
+ *
+ * VALIDACIONES (Zero Trust):
+ * - Todas las citas deben pertenecer a la fecha indicada.
+ * - El estado debe ser PENDIENTE o EN_ESPERA.
+ * - No debe existir arrival_time (indica que el transportista NUNCA arrivó al CEDI).
+ *
+ * Genera un registro en appointment_audit_log por cada cita afectada.
+ */
+export async function markAppointmentsAsNoShowAction({
+  appointmentIds,
+  date
+}: {
+  appointmentIds: string[]
+  date: string
+}): Promise<{ success: true; affected: number } | { success: false; error: string; invalidIds?: string[] }> {
+  if (!appointmentIds.length) {
+    return { success: false, error: 'No se proporcionaron citas para el cierre.' }
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // 1. Fetch de citas candidatas para validación (Zero Trust)
+  const { data: candidates, error: fetchError } = await supabase
+    .from('appointments')
+    .select('id, status, scheduled_date, arrival_time')
+    .in('id', appointmentIds)
+
+  if (fetchError || !candidates) {
+    return { success: false, error: 'Error al verificar las citas seleccionadas.' }
+  }
+
+  // 2. Validación estricta de elegibilidad
+  const ELIGIBLE_STATUSES: import('@/types').AppointmentStatus[] = ['PENDIENTE', 'EN_ESPERA']
+  const invalidIds: string[] = []
+
+  for (const appt of candidates) {
+    const isWrongDate  = appt.scheduled_date !== date
+    const isWrongStatus = !ELIGIBLE_STATUSES.includes(appt.status)
+    const hasArrived   = appt.arrival_time !== null
+
+    if (isWrongDate || isWrongStatus || hasArrived) {
+      invalidIds.push(appt.id)
+    }
+  }
+
+  if (invalidIds.length > 0) {
+    return {
+      success: false,
+      error: `${invalidIds.length} cita(s) no son elegibles para cierre. Verifique que no tengan registro de arribo y pertenezcan a la fecha indicada.`,
+      invalidIds
+    }
+  }
+
+  // 3. Actualización en lote (todas las citas validadas)
+  const { error: updateError } = await supabase
+    .from('appointments')
+    .update({ status: 'INCUMPLIDA' })
+    .in('id', appointmentIds)
+
+  if (updateError) {
+    console.error('[markAppointmentsAsNoShowAction] Error en update:', updateError)
+    return { success: false, error: 'Error al actualizar las citas en la base de datos.' }
+  }
+
+  // 4. Audit log en lote — un registro por cita para trazabilidad completa
+  const triggerEventId = crypto.randomUUID()
+  const auditRows = appointmentIds.map(id => ({
+    appointment_id: id,
+    user_id: user?.id ?? null,
+    action: 'STATUS_CHANGE',
+    changed_fields: {
+      status: { old: candidates.find(c => c.id === id)?.status, new: 'INCUMPLIDA' },
+      trigger_event_id: triggerEventId
+    },
+    notes: `Cierre masivo de jornada (${date}) — No Show: transportador no arribó.`
+  }))
+
+  await supabase.from('appointment_audit_log').insert(auditRows)
+
+  return { success: true, affected: appointmentIds.length }
 }
